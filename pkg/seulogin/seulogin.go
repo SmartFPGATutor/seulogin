@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/buger/jsonparser"
 	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
+	"github.com/buger/jsonparser"
 	"go.uber.org/zap"
 )
 
@@ -70,16 +70,28 @@ func DoLogin(form url.Values, useIp bool) (bool, string) {
 
 	loginURL := loginFullUrl + "?" + form.Encode()
 	req, err := http.NewRequest("GET", loginURL, nil)
-	Check(err)
+	if err != nil {
+		logger.Error("Failed to create request", zap.Error(err))
+		return false, err.Error()
+	}
 	req.Header.Set("Accept", "*/*")
 	req.Header.Set("Referer", BaseURLAddr+"/")
 
 	resp, err := client.Do(req)
-	Check(err)
+	if err != nil {
+		logger.Error("Login request failed", zap.Error(err))
+		return false, err.Error()
+	}
+	if resp == nil {
+		return false, "login request failed: empty response"
+	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
-	Check(err)
+	if err != nil {
+		logger.Error("Failed to read response", zap.Error(err))
+		return false, err.Error()
+	}
 
 	success, msg := parseLoginResponse(body)
 	if success {

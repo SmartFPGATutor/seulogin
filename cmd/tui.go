@@ -70,6 +70,11 @@ type cronStartMsg struct {
 	path string
 }
 
+type panicMsg struct {
+	where string
+	value any
+}
+
 type tuiModel struct {
 	menu         list.Model
 	active       menuID
@@ -99,42 +104,48 @@ type tuiModel struct {
 var (
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#0F172A")).
-			Background(lipgloss.Color("#7DD3FC")).
+			Foreground(lipgloss.Color("#F1F8E9")).
+			Background(lipgloss.Color("#2E7D32")).
 			Padding(0, 1)
 
 	panelStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#334155")).
+			BorderForeground(lipgloss.Color("#7CB342")).
 			Padding(1, 2)
 
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#38BDF8"))
+			Foreground(lipgloss.Color("#DCE775"))
 
 	sectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#F97316"))
+			Foreground(lipgloss.Color("#AED581"))
 
 	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#94A3B8"))
+			Foreground(lipgloss.Color("#B0BEC5"))
 
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#22D3EE"))
+			Foreground(lipgloss.Color("#F0F4C3"))
 
 	buttonStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#0EA5E9")).
+			BorderForeground(lipgloss.Color("#7CB342")).
 			Padding(0, 1)
 
 	buttonActiveStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#F97316")).
-				Background(lipgloss.Color("#1E293B")).
-				Foreground(lipgloss.Color("#FCD34D")).
+				BorderForeground(lipgloss.Color("#DCE775")).
+				Background(lipgloss.Color("#558B2F")).
+				Foreground(lipgloss.Color("#F1F8E9")).
 				Padding(0, 1)
 )
+
+const asciiSEU = `  ____  _____ _   _
+ / ___|| ____| | | |
+ \___ \|  _| | | | |
+  ___) | |___| |_| |
+ |____/|_____|\___/`
 
 func newTuiCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -151,7 +162,15 @@ func newTuiCmd() *cobra.Command {
 				menuItem{id: menuQuit, title: "Quit", desc: "退出"},
 			}
 
-			menu := list.New(items, list.NewDefaultDelegate(), 0, 0)
+			delegate := list.NewDefaultDelegate()
+			delegate.Styles.NormalTitle = dimStyle
+			delegate.Styles.NormalDesc = dimStyle
+			delegate.Styles.SelectedTitle = accentStyle
+			delegate.Styles.SelectedDesc = accentStyle
+			delegate.Styles.DimmedTitle = dimStyle
+			delegate.Styles.DimmedDesc = dimStyle
+
+			menu := list.New(items, delegate, 0, 0)
 			menu.Title = "SEULogin"
 			menu.SetFilteringEnabled(false)
 			menu.SetShowHelp(false)
@@ -255,6 +274,10 @@ func (m tuiModel) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 			m.appendStatus(m.lastResult)
 		}
 		return m, nil
+	case panicMsg:
+		m.lastResult = fmt.Sprintf("TUI panic (%s): %v", msg.where, msg.value)
+		m.appendStatus(m.lastResult)
+		return m, nil
 	case networkResultMsg:
 		if msg.err != nil {
 			m.lastResult = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
@@ -319,7 +342,7 @@ func (m tuiModel) View() (out string) {
 		return "Loading..."
 	}
 
-	header := headerStyle.Width(m.width).Render("SEULogin · Control Center")
+	header := headerStyle.Width(m.width).Render("SEU · 东南大学校园网 · Control Center")
 	body := m.renderBody()
 	footer := m.renderFooter()
 
@@ -371,9 +394,30 @@ func (m *tuiModel) reflow() {
 }
 
 func (m tuiModel) renderBody() string {
-	left := panelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.menu.View())
+	left := panelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.renderMenuPanel())
 	right := panelStyle.Width(m.rightWidth).Height(m.bodyHeight).Render(m.renderRight())
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+func (m tuiModel) renderMenuPanel() string {
+	menuTitle := titleStyle.Render("Menu")
+	art := m.menuArt()
+	artHeight := lipgloss.Height(art)
+	menuHeight := max(1, m.bodyHeight-4-artHeight-2)
+	m.menu.SetSize(max(1, m.leftWidth-4), menuHeight)
+
+	if art == "" {
+		return lipgloss.JoinVertical(lipgloss.Left, menuTitle, "", m.menu.View())
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, menuTitle, art, "", m.menu.View())
+}
+
+func (m tuiModel) menuArt() string {
+	if m.bodyHeight < 12 {
+		return accentStyle.Render("SEU")
+	}
+	name := dimStyle.Render("东南大学 · SOUTHEAST UNIVERSITY")
+	return lipgloss.JoinVertical(lipgloss.Left, accentStyle.Render(asciiSEU), name)
 }
 
 func (m tuiModel) renderFooter() string {
@@ -404,7 +448,7 @@ func (m tuiModel) renderRight() string {
 
 func (m tuiModel) renderLogin() string {
 	rows := []string{
-		titleStyle.Render("Login"),
+		titleStyle.Render("Login · 东南大学校园网"),
 		"",
 		m.loginInputs[0].View(),
 		m.loginInputs[1].View(),
@@ -675,10 +719,16 @@ func (m *tuiModel) runLogin() tea.Cmd {
 	m.lastResult = "Logging in..."
 	m.appendStatus(m.lastResult)
 
-	return func() tea.Msg {
+	return safeCmd("login", func() tea.Msg {
+		if _, err := network.HttpConnect("https://w.seu.edu.cn:802"); err != nil {
+			return loginResultMsg{success: false, message: "无法连接登录服务器，可能不在东南大学校园网。"}
+		}
 		success, message := seulogin.LoginToSeulogin(username, password, ip, m.loginRawIP)
+		if !success {
+			message = friendlyLoginError(message)
+		}
 		return loginResultMsg{success: success, message: message}
-	}
+	})
 }
 
 func (m *tuiModel) startCron() tea.Cmd {
@@ -693,7 +743,7 @@ func (m *tuiModel) startCron() tea.Cmd {
 	m.lastResult = "Starting cron..."
 	m.appendStatus(m.lastResult)
 
-	return func() tea.Msg {
+	return safeCmd("cron", func() tea.Msg {
 		if err := configs.CheckConfig(resolved); err != nil {
 			return cronStartMsg{err: err}
 		}
@@ -717,7 +767,7 @@ func (m *tuiModel) startCron() tea.Cmd {
 		c.Start()
 
 		return cronStartMsg{cron: c, expr: *cfg.CronExp, path: resolved}
-	}
+	})
 }
 
 func (m *tuiModel) stopCron() {
@@ -733,22 +783,22 @@ func (m *tuiModel) runNetworkAction() tea.Cmd {
 	switch m.netAction {
 	case netActionWAN:
 		m.appendStatus("Checking WAN...")
-		return func() tea.Msg {
+		return safeCmd("network-wan", func() tea.Msg {
 			err := network.CheckWanConnection()
 			return networkResultMsg{action: "WAN", err: err, result: "WAN connection ok"}
-		}
+		})
 	case netActionLoginServer:
 		m.appendStatus("Checking login server...")
-		return func() tea.Msg {
+		return safeCmd("network-login", func() tea.Msg {
 			err := network.CheckConnectionToLoginServer()
 			return networkResultMsg{action: "Login server", err: err, result: "Login server reachable"}
-		}
+		})
 	case netActionSeuLan:
 		m.appendStatus("Checking SEU LAN...")
-		return func() tea.Msg {
+		return safeCmd("network-seulan", func() tea.Msg {
 			err := network.CheckSeuLanConnection()
 			return networkResultMsg{action: "SEU LAN", err: err, result: "SEU LAN reachable"}
-		}
+		})
 	case netActionPing:
 		host := strings.TrimSpace(m.netPingInput.Value())
 		if host == "" {
@@ -757,10 +807,10 @@ func (m *tuiModel) runNetworkAction() tea.Cmd {
 			return nil
 		}
 		m.appendStatus(fmt.Sprintf("Ping %s", host))
-		return func() tea.Msg {
+		return safeCmd("network-ping", func() tea.Msg {
 			result, err := network.Ping(host)
 			return networkResultMsg{action: "Ping", err: err, result: result}
-		}
+		})
 	case netActionTCP:
 		host := strings.TrimSpace(m.netTCPInput.Value())
 		if host == "" {
@@ -769,10 +819,10 @@ func (m *tuiModel) runNetworkAction() tea.Cmd {
 			return nil
 		}
 		m.appendStatus(fmt.Sprintf("TCP %s", host))
-		return func() tea.Msg {
+		return safeCmd("network-tcp", func() tea.Msg {
 			result, err := network.TCPPing(host)
 			return networkResultMsg{action: "TCP", err: err, result: result}
-		}
+		})
 	case netActionHTTP:
 		url := strings.TrimSpace(m.netHTTPInput.Value())
 		if url == "" {
@@ -781,10 +831,10 @@ func (m *tuiModel) runNetworkAction() tea.Cmd {
 			return nil
 		}
 		m.appendStatus(fmt.Sprintf("HTTP %s", url))
-		return func() tea.Msg {
+		return safeCmd("network-http", func() tea.Msg {
 			result, err := network.HttpConnect(url)
 			return networkResultMsg{action: "HTTP", err: err, result: result}
-		}
+		})
 	default:
 		return nil
 	}
@@ -818,6 +868,31 @@ func expandPath(path string) string {
 		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 	}
 	return path
+}
+
+func safeCmd(where string, fn func() tea.Msg) tea.Cmd {
+	return func() (msg tea.Msg) {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Error("TUI command panic", zap.Any("panic", r), zap.ByteString("stack", debug.Stack()), zap.String("where", where))
+				msg = panicMsg{where: where, value: r}
+			}
+		}()
+		return fn()
+	}
+}
+
+func friendlyLoginError(message string) string {
+	lower := strings.ToLower(message)
+	if strings.Contains(lower, "eof") ||
+		strings.Contains(lower, "connection refused") ||
+		strings.Contains(lower, "no such host") ||
+		strings.Contains(lower, "i/o timeout") ||
+		strings.Contains(lower, "context deadline exceeded") ||
+		strings.Contains(lower, "tls") {
+		return "无法连接登录服务器，可能不在东南大学校园网。"
+	}
+	return message
 }
 
 func max(a, b int) int {
