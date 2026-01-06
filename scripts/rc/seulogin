@@ -1,9 +1,9 @@
 #!/sbin/openrc-run
 
-name="shlogin"
-description="ShanghaiTech Network Login Service"
-command="/usr/bin/shlogin"
-command_args="cron /etc/shlogin/${RC_SVCNAME#shlogin.}.toml"
+name="seulogin"
+description="Southeast University Network Login Service"
+command="/usr/bin/seulogin"
+command_args="cron /etc/seulogin/${RC_SVCNAME#seulogin.}.toml"
 pidfile="/run/${RC_SVCNAME}.pid"
 command_background="yes"
 

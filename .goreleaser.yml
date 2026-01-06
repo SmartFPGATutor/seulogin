@@ -1,7 +1,6 @@
 version: 2
 env:
   - GO111MODULE=on
-  - CGO_ENABLED=0
 
 # before:
 #   hooks:
@@ -9,8 +8,11 @@ env:
 #     - ./scripts/completions.sh
 
 builds:
-  -
-    binary: shlogin
+  - id: seulogin
+    main: .
+    binary: seulogin
+    env:
+      - CGO_ENABLED=0
     ldflags:
       - -s -w
       - -X main.version={{ .Version }}
@@ -51,23 +53,35 @@ builds:
           - -X main.version={{ .Version }}
           - -X main.buildTime={{ .Date }}
           - -X main.gitCommit={{ .FullCommit }}
+  - id: seulogin_gui
+    main: ./app/gui
+    binary: seulogin_gui
+    env:
+      - CGO_ENABLED=1
+    ldflags:
+      - -s -w
+    goos:
+      - linux
+    goarch:
+      - amd64
 
 
 archives:
   -
     builds:
-      - shlogin
+      - seulogin
+      - seulogin_gui
     format_overrides:
       - goos: windows
         format: zip
 
 nfpms:
   - builds:
-      - shlogin
-    vendor: nerdneilsfield
-    homepage:  https://github.com/nerdneilsfield/shlogin
+      - seulogin
+    vendor: SmartFPGATutor
+    homepage:  https://github.com/SmartFPGATutor/seulogin
     maintainer: "dengqqi <dengqqi935@gmail.com>"
-    description: "A command line tool to login to ShanghaiTech Network"
+    description: "A command line tool to login to Southeast University Network"
     license: MIT
     formats:
       - apk
@@ -77,36 +91,36 @@ nfpms:
       - termux.deb
     bindir: /usr/bin
     contents:
-      - src: ./scripts/systemctl/shlogin@.service
-        dst: /lib/systemd/system/shlogin@.service
+      - src: ./scripts/systemctl/seulogin@.service
+        dst: /lib/systemd/system/seulogin@.service
         type: config
         packager: deb
-      - src: ./scripts/systemctl/shlogin@.service
-        dst: /lib/systemd/system/shlogin@.service
+      - src: ./scripts/systemctl/seulogin@.service
+        dst: /lib/systemd/system/seulogin@.service
         type: config
         packager: archlinux
-      - src: ./scripts/systemctl/shlogin@.service
-        dst: /usr/lib/systemd/system/shlogin@.service
+      - src: ./scripts/systemctl/seulogin@.service
+        dst: /usr/lib/systemd/system/seulogin@.service
         type: config
         packager: rpm
-      - src: ./scripts/rc/shlogin
-        dst: /etc/init.d/shlogin
+      - src: ./scripts/rc/seulogin
+        dst: /etc/init.d/seulogin
         type: config
         packager: apk
-    #   - src: ./manpages/shlogin.1.gz
-    #     dst: /usr/share/man/man1/shlogin.1.gz
+    #   - src: ./manpages/seulogin.1.gz
+    #     dst: /usr/share/man/man1/seulogin.1.gz
     #     file_info:
     #       mode: 0644
-    #   - src: ./completions/shlogin.bash
-    #     dst: /usr/share/bash-completion/completions/shlogin
+    #   - src: ./completions/seulogin.bash
+    #     dst: /usr/share/bash-completion/completions/seulogin
     #     file_info:
     #       mode: 0644
-    #   - src: ./completions/shlogin.fish
-    #     dst: /usr/share/fish/vendor_completions.d/shlogin.fish
+    #   - src: ./completions/seulogin.fish
+    #     dst: /usr/share/fish/vendor_completions.d/seulogin.fish
     #     file_info:
     #       mode: 0644
-    #   - src: ./completions/shlogin.zsh
-    #     dst:  /usr/share/zsh/vendor-completions/_shlogin
+    #   - src: ./completions/seulogin.zsh
+    #     dst:  /usr/share/zsh/vendor-completions/_seulogin
     #     file_info:
     #       mode: 0644
     scripts:
@@ -115,21 +129,21 @@ nfpms:
 
 release:
   github:
-    owner: nerdneilsfield
-    name: shlogin
+    owner: SmartFPGATutor
+    name: seulogin
 
 dockers:
 - image_templates:
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
   dockerfile: Dockerfile
   use: buildx
   build_flag_templates:
   - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/nerdneilsfield/shlogin/master/README.md"
+  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
   - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A command line tool to login to ShanghaiTech Network"
+  - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
   - "--label=org.opencontainers.image.created={{.Date}}"
   - "--label=org.opencontainers.image.name={{.ProjectName}}"
   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -140,16 +154,16 @@ dockers:
     - config_example.toml
 - image_templates:
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
   dockerfile:  Dockerfile
   use: buildx
   build_flag_templates:
   - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/nerdneilsfield/shlogin/master/README.md"
-  - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/nerdneilsfield/shlogin/master/www/static/images/logo.png"
+  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
+  - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/www/static/images/logo.png"
   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
   - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A command line tool to login to ShanghaiTech Network"
+  - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
   - "--label=org.opencontainers.image.created={{.Date}}"
   - "--label=org.opencontainers.image.name={{.ProjectName}}"
   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -165,18 +179,18 @@ docker_manifests:
   image_templates:
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}'
+- name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}'
   image_templates:
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
 - name_template: 'nerdneils/{{.ProjectName}}:latest'
   image_templates:
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/nerdneilsfield/{{.ProjectName}}:latest'
+- name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:latest'
   image_templates:
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/nerdneilsfield/{{.ProjectName}}:{{ .Tag }}-arm64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
+  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
 
 checksum:
   name_template: "checksums.txt"

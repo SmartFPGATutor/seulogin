@@ -147,6 +147,17 @@ seulogin [command]
 - `cron`: 使用配置文件设置定时任务 / Set up cron jobs using configuration file
 - `tui`: 启动交互式终端界面 / Launch interactive TUI
 
+### TUI 使用 / TUI Usage
+
+```
+seulogin tui
+```
+
+交互式界面提供登录、网络检测、定时任务和状态页签。  
+Use the TUI to manage login, network checks, cron, and status.
+
+![TUI Screenshot](.github/images/tui.png)
+
 ### 登录 / Login
 
 ```
