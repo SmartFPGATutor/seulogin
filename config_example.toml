@@ -2,23 +2,23 @@ log_level = "info"
 cron_exp = "*/1 * * * *" # 每 1 分钟检查一次
 retry_interval = 10 # 重试间隔时间，单位为秒
 retry_times = 3 # 重试次数
-log_file = "/var/log/shlogin.log" # 日志文件路径
+log_file = "/var/log/seulogin.log" # 日志文件路径
 
 [[login_ip]] # 指定 IP 进行登录
-ip = "10.19.125.111"
-username = "2022210401001"
-password = "123456"
+ip = "10.0.0.1"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP
 
 [[login_interface]] # 指定接口进行登录
 interface = "eth0" # 将会自动获得接口的 IP 地址
-username = "2022210401001"
-password = "123456"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP
 
 [[login_upnp]] # 指定 UPnP 接口进行登录
 interface = "eth0" # 将会自动获得接口的 IP 地址
-username = "2022210401001"
-password = "123456"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP
-exclude=["10.19.125.111"] # 排除的 IP 地址列表
+exclude=["10.0.0.1"] # 排除的 IP 地址列表

@@ -1,4 +1,4 @@
-projectname := "shlogin"
+projectname := "seulogin"
 
 # 列出所有可用的命令
 default:

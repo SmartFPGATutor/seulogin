@@ -1,3 +1,3 @@
 #! /bin/sh
 
-rm -rf /etc/shlogin
+rm -rf /etc/seulogin

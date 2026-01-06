@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	loggerPkg "github.com/nerdneilsfield/shlogin/pkg/logger"
+	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
 	"go.uber.org/zap"
 )
 

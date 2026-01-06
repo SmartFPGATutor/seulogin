@@ -6,28 +6,28 @@
   "log_level": "info",
   "login_ip": [
     {
-      "ip": "10.19.125.111",
-      "username": "2022210401001",
-      "password": "123456",
+      "ip": "10.0.0.1",
+      "username": "username",
+      "password": "password",
       "use_ip": true
     }
   ],
   "login_interface": [
     {
       "interface": "eth0",
-      "username": "2022210401001",
-      "password": "123456",
+      "username": "username",
+      "password": "password",
       "use_ip": true
     }
   ],
   "login_upnp": [
     {
       "interface": "eth0",
-      "username": "2022210401001",
-      "password": "123456",
+      "username": "username",
+      "password": "password",
       "use_ip": true,
       "exclude": [
-        "10.19.125.111"
+        "10.0.0.1"
       ]
     }
   ]

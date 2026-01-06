@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/nerdneilsfield/shlogin/internal/configs"
-	"github.com/nerdneilsfield/shlogin/internal/login"
+	"github.com/nerdneilsfield/seulogin/internal/configs"
+	"github.com/nerdneilsfield/seulogin/internal/login"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

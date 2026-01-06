@@ -10,7 +10,7 @@ import (
 func newVersionCmd(version string, buildTime string, gitCommit string) *cobra.Command {
 	return &cobra.Command{
 		Use:          "version",
-		Short:        "shlogin version",
+		Short:        "seulogin version",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -24,9 +24,9 @@ ____) | |  | | |___| |__| | |__| |_| |_| |\  |
 				`
 			fmt.Fprintln(cmd.OutOrStdout(), slogan)
 			fmt.Fprintln(cmd.OutOrStdout(), "Author: dengqi935@gmail.com")
-			fmt.Fprintln(cmd.OutOrStdout(), "Github: https://github.com/nerdneilsfield/shlogin")
-			fmt.Fprintln(cmd.OutOrStdout(), "Wiki: https://nerdneilsfield.github.io/shlogin/")
-			fmt.Fprintf(cmd.OutOrStdout(), "shlogin: %s\n", version)
+			fmt.Fprintln(cmd.OutOrStdout(), "Github: https://github.com/nerdneilsfield/seulogin")
+			fmt.Fprintln(cmd.OutOrStdout(), "Wiki: https://nerdneilsfield.github.io/seulogin/")
+			fmt.Fprintf(cmd.OutOrStdout(), "seulogin: %s\n", version)
 			fmt.Fprintf(cmd.OutOrStdout(), "buildTime: %s\n", buildTime)
 			fmt.Fprintf(cmd.OutOrStdout(), "gitCommit: %s\n", gitCommit)
 			fmt.Fprintf(cmd.OutOrStdout(), "goVersion: %s\n", runtime.Version())

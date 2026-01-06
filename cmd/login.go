@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/nerdneilsfield/shlogin/internal/configs"
-	"github.com/nerdneilsfield/shlogin/internal/login"
-	"github.com/nerdneilsfield/shlogin/pkg/shlogin"
+	"github.com/nerdneilsfield/seulogin/internal/configs"
+	"github.com/nerdneilsfield/seulogin/internal/login"
+	"github.com/nerdneilsfield/seulogin/pkg/seulogin"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -21,7 +21,7 @@ var (
 func newLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "login",
-		Short:        "Use config file to login to shlogin",
+		Short:        "Use config file to login to seulogin",
 		Args:         cobra.ExactArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,7 +42,7 @@ func newLoginCmd() *cobra.Command {
 					logger.Error("username, password and ip are required")
 					return fmt.Errorf("username, password and ip are required")
 				}
-				success, msg := shlogin.LoginToShlogin(username, password, ip, rawIP)
+				success, msg := seulogin.LoginToSeulogin(username, password, ip, rawIP)
 				if !success {
 					logger.Error("Login failed", zap.String("message", msg))
 					return fmt.Errorf("login failed: %s", msg)

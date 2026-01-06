@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nerdneilsfield/shlogin/internal/configs"
-	"github.com/nerdneilsfield/shlogin/pkg/network"
+	"github.com/nerdneilsfield/seulogin/internal/configs"
+	"github.com/nerdneilsfield/seulogin/pkg/network"
 	"github.com/robfig/cron/v3"
 	"go.uber.org/zap"
 )

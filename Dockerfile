@@ -1,6 +1,6 @@
 FROM alpine:latest
 
-COPY shlogin /usr/bin/shlogin
-COPY config_example.toml /etc/shlogin/config.toml
+COPY seulogin /usr/bin/seulogin
+COPY config_example.toml /etc/seulogin/config.toml
 
-ENTRYPOINT ["shlogin", "cron", "/etc/shlogin/config.toml"]
+ENTRYPOINT ["seulogin", "cron", "/etc/seulogin/config.toml"]

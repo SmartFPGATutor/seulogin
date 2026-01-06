@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	loggerPkg "github.com/nerdneilsfield/shlogin/pkg/logger"
+	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -12,8 +12,8 @@ var logger = loggerPkg.GetLogger()
 
 func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "shlogin",
-		Short: "shlogin is a tool to login to the ShanghaiTech network",
+		Use:   "seulogin",
+		Short: "seulogin is a tool to login to the Southeast University network",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},

@@ -1,8 +1,8 @@
 #! /bin/sh
 
-mkdir -p /etc/shlogin
+mkdir -p /etc/seulogin
 
-mkdir -p /var/log/shlogin
+mkdir -p /var/log/seulogin
 
-/usr/bin/shlogin gen /etc/shlogin/example.toml
-/usr/bin/shlogin gen /etc/shlogin/example.json
+/usr/bin/seulogin gen /etc/seulogin/example.toml
+/usr/bin/seulogin gen /etc/seulogin/example.json

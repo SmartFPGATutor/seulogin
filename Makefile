@@ -1,4 +1,4 @@
-projectname?=shlogin
+projectname?=seulogin
 
 default: help
 

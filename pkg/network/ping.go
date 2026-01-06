@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	loggerPkg "github.com/nerdneilsfield/shlogin/pkg/logger"
+	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
 	"go.uber.org/zap"
 )
 
@@ -116,11 +116,11 @@ func CheckWanConnection() error {
 }
 
 func CheckConnectionToLoginServer() error {
-	if _, err := Ping("10.15.145.16"); err != nil {
+	if _, err := Ping("10.80.128.2"); err != nil {
 		return err
 	}
 
-	if _, err := TCPPing("10.15.145.16:19008"); err != nil {
+	if _, err := TCPPing("10.80.128.2:802"); err != nil {
 		return err
 	}
 
@@ -128,20 +128,20 @@ func CheckConnectionToLoginServer() error {
 	return nil
 }
 
-func CheckShLanConnection() error {
-	// www.shanghaitech.edu.cn
-	if _, err := Ping("10.15.44.11"); err != nil {
+func CheckSeuLanConnection() error {
+	// w.seu.edu.cn
+	if _, err := Ping("10.80.128.2"); err != nil {
 		return err
 	}
 
-	if _, err := TCPPing("10.15.45.164:443"); err != nil {
+	if _, err := TCPPing("10.80.128.2:802"); err != nil {
 		return err
 	}
 
-	if _, err := HttpConnect("https://www.shanghaitech.edu.cn"); err != nil {
+	if _, err := HttpConnect("https://w.seu.edu.cn:802"); err != nil {
 		return err
 	}
 
-	logger.Debug("ShLan connection check success")
+	logger.Debug("SeuLan connection check success")
 	return nil
 }

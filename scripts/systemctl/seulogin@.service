@@ -1,12 +1,12 @@
 [Unit]
-Description=ShanghaiTech Network Login Service for %I
+Description=Southeast University Network Login Service for %I
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 ExecStartPre=/bin/sleep 60
-ExecStart=/usr/bin/shlogin cron /etc/shlogin/%i.toml
+ExecStart=/usr/bin/seulogin cron /etc/seulogin/%i.toml
 Restart=on-failure
 RestartSec=5s
 

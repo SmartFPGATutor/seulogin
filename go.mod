@@ -1,4 +1,4 @@
-module github.com/nerdneilsfield/shlogin
+module github.com/nerdneilsfield/seulogin
 
 go 1.23.2
 

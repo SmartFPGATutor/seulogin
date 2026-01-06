@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/nerdneilsfield/shlogin/internal/configs"
+	"github.com/nerdneilsfield/seulogin/internal/configs"
 	"github.com/spf13/cobra"
 )
 

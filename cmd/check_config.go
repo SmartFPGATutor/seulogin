@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/nerdneilsfield/shlogin/internal/configs"
+	"github.com/nerdneilsfield/seulogin/internal/configs"
 	"github.com/spf13/cobra"
 )
 

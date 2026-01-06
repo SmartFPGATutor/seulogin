@@ -1,8 +1,8 @@
-# SHLogin
+# SEULogin
 
-SHLogin 是一个用于登录上海科技大学网络的工具。
+SEULogin 是一个用于登录东南大学网络的工具。
 
-SHLogin is a tool for logging into the ShanghaiTech University network.
+SEULogin is a tool for logging into the Southeast University network.
 
 ## 功能 / Features
 
@@ -31,66 +31,66 @@ SHLogin is a tool for logging into the ShanghaiTech University network.
 
 ### 下载安装包 / Download and install package
 
-在 [Release](https://github.com/nerdneilsfield/shlogin/releases) 页面下载对应平台的安装包。
+在 [Release](https://github.com/nerdneilsfield/seulogin/releases) 页面下载对应平台的安装包。
 
-Download the installation package for the corresponding platform from the [Release](https://github.com/nerdneilsfield/shlogin/releases) page.
+Download the installation package for the corresponding platform from the [Release](https://github.com/nerdneilsfield/seulogin/releases) page.
 
 #### Systemd 服务安装 / Systemd service installation
 
-安装 shlogin_amd64.deb 包 / Install the shlogin_amd64.deb package
+安装 seulogin_amd64.deb 包 / Install the seulogin_amd64.deb package
 
 ```
 # debian/ubuntu/linuxmint/zorin
-sudo dpkg -i shlogin_amd64.deb
+sudo dpkg -i seulogin_amd64.deb
 # centos/almalinux/rocky/rhel/fedora
-sudo rpm -i shlogin_amd64.rpm
+sudo rpm -i seulogin_amd64.rpm
 ```
 
 修改配置文件 / Modify the configuration file
 
 ```
-sudo shlogin gen /etc/shlogin/config.toml
-sudo nano /etc/shlogin/config.toml
+sudo seulogin gen /etc/seulogin/config.toml
+sudo nano /etc/seulogin/config.toml
 ```
 
 启动服务 / Start the service
 
 ```
-sudo systemctl start shlogin@config.toml
-sudo systemctl enable shlogin@config.toml
+sudo systemctl start seulogin@config.toml
+sudo systemctl enable seulogin@config.toml
 ```
 
 #### 基于 RC 的安装 / Install based on RC
 
 ```
 # alpine
-apk add shlogin_amd64.apk
+apk add seulogin_amd64.apk
 ```
 
 修改配置文件 / Modify the configuration file
 
 ```
-shlogin gen /etc/shlogin/config.toml
-shlogin edit /etc/shlogin/config.toml
+seulogin gen /etc/seulogin/config.toml
+seulogin edit /etc/seulogin/config.toml
 ```
 
 启动服务 / Start the service
 
 ```
-/etc/init.d/shlogin start config
+/etc/init.d/seulogin start config
 ```
 
 自动启动 / Auto start
 
 ```
-rc-update add shlogin@config
+rc-update add seulogin@config
 ```
 </details>
 
 ### 直接安装 / Install directly
 
 ```
-go install github.com/nerdneilsfield/shlogin@latest
+go install github.com/nerdneilsfield/seulogin@latest
 ```
 
 ### 使用 Docker 安装 / Install using Docker
@@ -99,15 +99,15 @@ go install github.com/nerdneilsfield/shlogin@latest
 <summary> Docker 的各种安装方法 / Various installation methods for Docker</summary>
 
 ```
-docker pull nerdneils/shlogin:latest # dockerhub
-docker pull ghcr.io/nerdneilsfield/shlogin:latest # ghcr
+docker pull nerdneils/seulogin:latest # dockerhub
+docker pull ghcr.io/nerdneilsfield/seulogin:latest # ghcr
 ```
 
 #### 运行 / Run
 
 ```
-docker run --network host -it -v ./config.toml:/etc/shlogin/config.toml nerdneils/shlogin:latest # dockerhub
-docker run --network host -it -v ./config.toml:/etc/shlogin/config.toml ghcr.io/nerdneilsfield/shlogin:latest # ghcr
+docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml nerdneils/seulogin:latest # dockerhub
+docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml ghcr.io/nerdneilsfield/seulogin:latest # ghcr
 ```
 
 > 注意: 需要将配置文件挂载到容器中。
@@ -118,14 +118,14 @@ docker run --network host -it -v ./config.toml:/etc/shlogin/config.toml ghcr.io/
 
 ```yaml
 services:
-  shlogin:
-    image: nerdneils/shlogin:latest # dockerhub
-    #image: ghcr.io/nerdneilsfield/shlogin:latest # ghcr
+  seulogin:
+    image: nerdneils/seulogin:latest # dockerhub
+    #image: ghcr.io/nerdneilsfield/seulogin:latest # ghcr
     volumes:
-      - ./config.toml:/etc/shlogin/config.toml
+      - ./config.toml:/etc/seulogin/config.toml
     restart: always
     network_mode: host
-    command: ["sh", "-c", "shlogin cron /etc/shlogin/config.toml"]
+    command: ["sh", "-c", "seulogin cron /etc/seulogin/config.toml"]
 ```
 
 </details>
@@ -133,7 +133,7 @@ services:
 ### 基本命令 / Basic Commands
 
 ```
-shlogin [command]
+seulogin [command]
 ```
 
 可用的命令 / Available Commands:
@@ -149,10 +149,10 @@ shlogin [command]
 ### 登录 / Login
 
 ```
-Use config file to login to shlogin
+Use config file to login to seulogin
 
 Usage:
-  shlogin login [flags]
+  seulogin login [flags]
 
 Flags:
   -c, --config string     config file
@@ -174,7 +174,7 @@ Login to the network using `-c` to specify the configuration file. You can also 
 ### 设置定时任务 / Set up cron jobs
 
 ```
-shlogin cron [config_file_path]
+seulogin cron [config_file_path]
 ```
 
 使用指定的配置文件设置定时任务。在执行定时任务时，会先检测网络连接，如果网络连接正常，则不进行登录操作。否则，会使用配置文件中的信息登录网络。
@@ -188,7 +188,7 @@ The configuration file needs to contain the `cron_exp` field, which specifies th
 ### 检查配置 / Check Configuration
 
 ```
-shlogin check [config_file_path]
+seulogin check [config_file_path]
 ```
 
 检查指定的配置文件是否有效。
@@ -198,7 +198,7 @@ Check if the specified configuration file is valid.
 ### 转换配置文件格式 / Convert Configuration File Format
 
 ```
-shlogin convert [input_file_path] [output_file_path]
+seulogin convert [input_file_path] [output_file_path]
 ```
 
 将配置文件从一种格式转换为另一种格式（TOML 到 JSON 或 JSON 到 TOML）。
@@ -208,7 +208,7 @@ Convert the configuration file from one format to another (TOML to JSON or JSON 
 ### 编辑配置文件 / Edit Configuration File
 
 ```
-shlogin edit [config_file_path]
+seulogin edit [config_file_path]
 ```
 
 使用系统默认编辑器编辑指定的配置文件。(Win: notepad, Linux: xdg-open/$EDITOR/vim, macOS: open)
@@ -219,7 +219,7 @@ Edit the specified configuration file using the system's default editor. (Win: n
 ### 测试网络连接 / Test Network Connection
 
 ```
-shlogin conn
+seulogin conn
 ```
 
 测试当前网络连接是否正常。
@@ -230,7 +230,7 @@ Test if the current network connection is normal.
 
 - 默认(空命令): 测试连接到因特网的连接 / Default(empty command): test the connection to the Internet
 - `login`: 测试到登录服务器的连接 / Test the connection to the login server
-- `shlan`: 测试到上海科技大学校内局域网连接 / Test the connection to the ShanghaiTech University campus network
+- `seulan`: 测试到东南大学校内局域网连接 / Test the connection to the Southeast University campus network
 - `ping [ip/hostname]`: 测试到指定主机的连接 (使用 ICMP ping) / Test the connection to the specified host using ICMP ping
 - `tcp [ip:port]`: 测试到指定主机的 TCP 连接 / Test the TCP connection to the specified host
 - `http [url]`: 测试到指定 URL 的 HTTP 连接 / Test the HTTP connection to the specified URL
@@ -253,23 +253,23 @@ retry_times = 3 # 重试次数 / Retry times
 log_file = "" # 日志文件路径(如果为空，则不保存到文件) / Log file path (if it is empty, it will not be saved to a file)
 
 [[login_ip]] # 指定 IP 进行登录（可以有多个） / Specify IP for login (can have multiple)
-ip = "10.19.125.111"
-username = "2022210401001"
-password = "123456"
+ip = "10.0.0.1"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP (默认: true) / Whether to not resolve the login node domain name, directly connect to the login node's IP (default: true)
 
 [[login_interface]] # 指定接口进行登录（可以有多个） / Specify interface for login (can have multiple)
 interface = "eth0" # 将会自动获得接口的 IP 地址 / Will automatically get the interface's IP address
-username = "2022210401001"
-password = "123456"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP (默认: true) / Whether to not resolve the login node domain name, directly connect to the login node's IP (default: true)
 
 [[login_upnp]] # 指定 UPnP 接口进行登录（可以有多个） / Specify UPnP interface for login (can have multiple)
 interface = "eth0" # 将会自动获得接口的 IP 地址 / Will automatically get the interface's IP address 
-username = "2022210401001"
-password = "123456"
+username = "username"
+password = "password"
 use_ip = true # 是否不解析登录节点域名，直接连接到登录节点的 IP (默认: true) / Whether to not resolve the login node domain name, directly connect to the login node's IP (default: true)
-exclude=["10.19.125.111"] # 排除的 IP 地址列表(如果 UPnP 获得的 IP 地址在这个列表中，则不进行登录) / Exclude IP address list (if the IP address obtained from UPnP is in this list, it will not be logged in)
+exclude=["10.0.0.1"] # 排除的 IP 地址列表(如果 UPnP 获得的 IP 地址在这个列表中，则不进行登录) / Exclude IP address list (if the IP address obtained from UPnP is in this list, it will not be logged in)
 ```
 </details>
 
@@ -286,28 +286,28 @@ exclude=["10.19.125.111"] # 排除的 IP 地址列表(如果 UPnP 获得的 IP �
   "log_level": "info",
   "login_ip": [
     {
-      "ip": "10.19.125.111",
-      "username": "2022210401001",
-      "password": "123456",
+      "ip": "10.0.0.1",
+      "username": "username",
+      "password": "password",
       "use_ip": true
     }
   ],
   "login_interface": [
     {
       "interface": "eth0",
-      "username": "2022210401001",
-      "password": "123456",
+      "username": "username",
+      "password": "password",
       "use_ip": true
     }
   ],
   "login_upnp": [
     {
       "interface": "eth0",
-      "username": "2022210401001",
-      "password": "123456",
+      "username": "username",
+      "password": "password",
       "use_ip": true,
       "exclude": [
-        "10.19.125.111"
+        "10.0.0.1"
       ]
     }
   ]
@@ -322,15 +322,15 @@ exclude=["10.19.125.111"] # 排除的 IP 地址列表(如果 UPnP 获得的 IP �
 
 ## 版本信息 / Version Information
 
-使用 `shlogin version` 命令可以查看详细的版本信息，包括构建时间和 Git 提交哈希。
+使用 `seulogin version` 命令可以查看详细的版本信息，包括构建时间和 Git 提交哈希。
 
-Use the `shlogin version` command to view detailed version information, including build time and Git commit hash.
+Use the `seulogin version` command to view detailed version information, including build time and Git commit hash.
 
 ## 作为库使用 / As a library
 
-可以作为库导入到项目中使用。 `import "github.com/nerdneilsfield/shlogin/pkg"`, 你可以方便地使用其中的函数来实现你的需求。
+可以作为库导入到项目中使用。 `import "github.com/nerdneilsfield/seulogin/pkg/seulogin"`, 你可以方便地使用其中的函数来实现你的需求。
 
-Import it into your project as a library. `import "github.com/nerdneilsfield/shlogin/pkg"`, you can easily use the functions in it to implement your needs.
+Import it into your project as a library. `import "github.com/nerdneilsfield/seulogin/pkg/seulogin"`, you can easily use the functions in it to implement your needs.
 
 ## 贡献 / Contributing
 
@@ -367,4 +367,4 @@ SOFTWARE.
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=nerdneilsfield/shlogin&type=Date)](https://star-history.com/#nerdneilsfield/shlogin&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=nerdneilsfield/seulogin&type=Date)](https://star-history.com/#nerdneilsfield/seulogin&Date)

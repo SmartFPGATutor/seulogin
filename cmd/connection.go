@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/nerdneilsfield/shlogin/pkg/network"
+	"github.com/nerdneilsfield/seulogin/pkg/network"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -28,7 +28,7 @@ func newConnectionCmd() *cobra.Command {
 	cmd.AddCommand(newTcpPingCmd())
 	cmd.AddCommand(newHttpConnectCmd())
 	cmd.AddCommand(newCheckLoginServerCmd())
-	cmd.AddCommand(newCheckShLanCmd())
+	cmd.AddCommand(newCheckSeuLanCmd())
 
 	return cmd
 }
@@ -105,18 +105,18 @@ func newCheckLoginServerCmd() *cobra.Command {
 	return cmd
 }
 
-func newCheckShLanCmd() *cobra.Command {
+func newCheckSeuLanCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "shlan",
-		Short:        "Check the connection to ShLan",
+		Use:          "seulan",
+		Short:        "Check the connection to SeuLan",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := network.CheckShLanConnection()
+			err := network.CheckSeuLanConnection()
 			if err != nil {
 				return err
 			}
-			logger.Info("Connection to ShLan check success")
+			logger.Info("Connection to SeuLan check success")
 			return nil
 		},
 	}
