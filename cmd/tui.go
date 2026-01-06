@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 type menuID int
@@ -218,7 +220,18 @@ func newTuiModel(menu list.Model) tuiModel {
 
 func (m tuiModel) Init() tea.Cmd { return nil }
 
-func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m tuiModel) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
+	defer func() {
+		if r := recover(); r != nil {
+			errMsg := fmt.Sprintf("TUI panic: %v", r)
+			m.lastResult = errMsg
+			m.appendStatus(errMsg)
+			logger.Error("TUI panic", zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
+			model = m
+			cmd = nil
+		}
+	}()
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -265,7 +278,6 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	var cmd tea.Cmd
 	m.menu, cmd = m.menu.Update(msg)
 
 	switch msg := msg.(type) {
@@ -295,7 +307,14 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
-func (m tuiModel) View() string {
+func (m tuiModel) View() (out string) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("TUI view panic", zap.Any("panic", r), zap.ByteString("stack", debug.Stack()))
+			out = fmt.Sprintf("TUI render error: %v\n\nPress q to quit.", r)
+		}
+	}()
+
 	if m.width == 0 || m.height == 0 {
 		return "Loading..."
 	}
@@ -312,17 +331,29 @@ func (m *tuiModel) reflow() {
 		return
 	}
 
+	minLeft := 18
+	minRight := 24
+
 	left := int(float64(m.width) * 0.3)
-	if left < 24 {
-		left = 24
+	if left < minLeft {
+		left = minLeft
 	}
-	if left > m.width-30 {
-		left = m.width - 30
+	if m.width < minLeft+minRight+1 {
+		left = m.width/2 - 1
+		if left < 10 {
+			left = 10
+		}
+	}
+	if left > m.width-minRight-1 {
+		left = m.width - minRight - 1
+	}
+	if left < 10 {
+		left = 10
 	}
 
 	right := m.width - left - 1
-	if right < 30 {
-		right = 30
+	if right < minRight {
+		right = minRight
 	}
 
 	headerHeight := 1
@@ -336,7 +367,7 @@ func (m *tuiModel) reflow() {
 	m.rightWidth = right
 	m.bodyHeight = bodyHeight
 
-	m.menu.SetSize(left-4, bodyHeight-4)
+	m.menu.SetSize(max(1, left-4), max(1, bodyHeight-4))
 }
 
 func (m tuiModel) renderBody() string {
@@ -349,6 +380,9 @@ func (m tuiModel) renderFooter() string {
 	hint := "Tab: next field · Enter: action · Q: quit"
 	if m.active == menuNetwork && m.netInputOn {
 		hint = "Tab/Esc: back · Enter: run · Q: quit"
+	}
+	if m.active == menuLogin {
+		hint = "Tab: next field · R: raw-ip · Enter: run · Q: quit"
 	}
 	return dimStyle.Width(m.width).Render(hint)
 }
@@ -784,4 +818,11 @@ func expandPath(path string) string {
 		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
 	}
 	return path
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
