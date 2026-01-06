@@ -96,11 +96,6 @@ func HttpConnect(host string) (string, error) {
 }
 
 func CheckWanConnection() error {
-	// icmp ping
-	if _, err := Ping("223.5.5.5"); err != nil {
-		return err
-	}
-
 	// tcp ping
 	if _, err := TCPPing("www.baidu.com:80"); err != nil {
 		return err
@@ -116,11 +111,11 @@ func CheckWanConnection() error {
 }
 
 func CheckConnectionToLoginServer() error {
-	if _, err := Ping("10.80.128.2"); err != nil {
+	if _, err := TCPPing("10.80.128.2:802"); err != nil {
 		return err
 	}
 
-	if _, err := TCPPing("10.80.128.2:802"); err != nil {
+	if _, err := HttpConnect("https://w.seu.edu.cn:802"); err != nil {
 		return err
 	}
 
@@ -130,10 +125,6 @@ func CheckConnectionToLoginServer() error {
 
 func CheckSeuLanConnection() error {
 	// w.seu.edu.cn
-	if _, err := Ping("10.80.128.2"); err != nil {
-		return err
-	}
-
 	if _, err := TCPPing("10.80.128.2:802"); err != nil {
 		return err
 	}
