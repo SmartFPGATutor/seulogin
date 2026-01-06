@@ -29,7 +29,7 @@ jobs:
         name: Install GUI dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xorg-dev libgl1-mesa-dev
+          sudo apt-get install -y libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev xorg-dev
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v3

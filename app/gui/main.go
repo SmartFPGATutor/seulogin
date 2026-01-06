@@ -39,11 +39,11 @@ func main() {
 
 	state := newGUIState(app)
 	header := buildHeader()
-	content := widget.NewAppTabs(
-		widget.NewTabItem("Login", buildLoginTab(state)),
-		widget.NewTabItem("Network", buildNetworkTab(state)),
-		widget.NewTabItem("Cron", buildCronTab(state)),
-		widget.NewTabItem("Status", buildStatusTab(state)),
+	content := container.NewAppTabs(
+		container.NewTabItem("Login", buildLoginTab(state)),
+		container.NewTabItem("Network", buildNetworkTab(state)),
+		container.NewTabItem("Cron", buildCronTab(state)),
+		container.NewTabItem("Status", buildStatusTab(state)),
 	)
 
 	w.SetContent(container.NewBorder(header, nil, nil, nil, content))
@@ -293,7 +293,7 @@ func buildStatusTab(state *guiState) fyne.CanvasObject {
 }
 
 func (s *guiState) appendStatus(line string) {
-	s.app.Driver().RunOnMain(func() {
+	fyne.Do(func() {
 		stamp := time.Now().Format("15:04:05")
 		entry := fmt.Sprintf("[%s] %s", stamp, line)
 		s.statusLines = append(s.statusLines, entry)
@@ -320,7 +320,7 @@ func (s *guiState) setNetworkStatus(text string) {
 }
 
 func (s *guiState) setLabel(label *widget.Label, text string) {
-	s.app.Driver().RunOnMain(func() {
+	fyne.Do(func() {
 		label.SetText(text)
 	})
 }
@@ -343,13 +343,13 @@ func (s *guiState) runNetworkAction(name string, action func() error) {
 }
 
 func (s *guiState) setCron(c *cron.Cron) {
-	s.app.Driver().RunOnMain(func() {
+	fyne.Do(func() {
 		s.cron = c
 	})
 }
 
 func (s *guiState) stopCron() {
-	s.app.Driver().RunOnMain(func() {
+	fyne.Do(func() {
 		if s.cron != nil {
 			s.cron.Stop()
 		}
