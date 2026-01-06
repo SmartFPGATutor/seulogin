@@ -31,9 +31,9 @@ SEULogin is a tool for logging into the Southeast University network.
 
 ### 下载安装包 / Download and install package
 
-在 [Release](https://github.com/nerdneilsfield/seulogin/releases) 页面下载对应平台的安装包。
+在 [Release](https://github.com/SmartFPGATutor/seulogin/releases) 页面下载对应平台的安装包。
 
-Download the installation package for the corresponding platform from the [Release](https://github.com/nerdneilsfield/seulogin/releases) page.
+Download the installation package for the corresponding platform from the [Release](https://github.com/SmartFPGATutor/seulogin/releases) page.
 
 #### Systemd 服务安装 / Systemd service installation
 
@@ -90,7 +90,7 @@ rc-update add seulogin@config
 ### 直接安装 / Install directly
 
 ```
-go install github.com/nerdneilsfield/seulogin@latest
+go install github.com/SmartFPGATutor/seulogin@latest
 ```
 
 ### 使用 Docker 安装 / Install using Docker
@@ -100,14 +100,14 @@ go install github.com/nerdneilsfield/seulogin@latest
 
 ```
 docker pull nerdneils/seulogin:latest # dockerhub
-docker pull ghcr.io/nerdneilsfield/seulogin:latest # ghcr
+docker pull ghcr.io/SmartFPGATutor/seulogin:latest # ghcr
 ```
 
 #### 运行 / Run
 
 ```
 docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml nerdneils/seulogin:latest # dockerhub
-docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml ghcr.io/nerdneilsfield/seulogin:latest # ghcr
+docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml ghcr.io/SmartFPGATutor/seulogin:latest # ghcr
 ```
 
 > 注意: 需要将配置文件挂载到容器中。
@@ -120,7 +120,7 @@ docker run --network host -it -v ./config.toml:/etc/seulogin/config.toml ghcr.io
 services:
   seulogin:
     image: nerdneils/seulogin:latest # dockerhub
-    #image: ghcr.io/nerdneilsfield/seulogin:latest # ghcr
+    #image: ghcr.io/SmartFPGATutor/seulogin:latest # ghcr
     volumes:
       - ./config.toml:/etc/seulogin/config.toml
     restart: always
@@ -145,6 +145,7 @@ seulogin [command]
 - `conn`: 测试网络连接 / Test network connection
 - `login`: 使用配置文件登录（单次） / Login using configuration file (one-time)
 - `cron`: 使用配置文件设置定时任务 / Set up cron jobs using configuration file
+- `tui`: 启动交互式终端界面 / Launch interactive TUI
 
 ### 登录 / Login
 
@@ -328,9 +329,9 @@ Use the `seulogin version` command to view detailed version information, includi
 
 ## 作为库使用 / As a library
 
-可以作为库导入到项目中使用。 `import "github.com/nerdneilsfield/seulogin/pkg/seulogin"`, 你可以方便地使用其中的函数来实现你的需求。
+可以作为库导入到项目中使用。 `import "github.com/SmartFPGATutor/seulogin/pkg/seulogin"`, 你可以方便地使用其中的函数来实现你的需求。
 
-Import it into your project as a library. `import "github.com/nerdneilsfield/seulogin/pkg/seulogin"`, you can easily use the functions in it to implement your needs.
+Import it into your project as a library. `import "github.com/SmartFPGATutor/seulogin/pkg/seulogin"`, you can easily use the functions in it to implement your needs.
 
 ## 贡献 / Contributing
 
@@ -367,4 +368,4 @@ SOFTWARE.
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=nerdneilsfield/seulogin&type=Date)](https://star-history.com/#nerdneilsfield/seulogin&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=SmartFPGATutor/seulogin&type=Date)](https://star-history.com/#SmartFPGATutor/seulogin&Date)

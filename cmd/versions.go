@@ -24,7 +24,7 @@ ____) | |  | | |___| |__| | |__| |_| |_| |\  |
 				`
 			fmt.Fprintln(cmd.OutOrStdout(), slogan)
 			fmt.Fprintln(cmd.OutOrStdout(), "Author: dengqi935@gmail.com")
-			fmt.Fprintln(cmd.OutOrStdout(), "Github: https://github.com/nerdneilsfield/seulogin")
+			fmt.Fprintln(cmd.OutOrStdout(), "Github: https://github.com/SmartFPGATutor/seulogin")
 			fmt.Fprintln(cmd.OutOrStdout(), "Wiki: https://nerdneilsfield.github.io/seulogin/")
 			fmt.Fprintf(cmd.OutOrStdout(), "seulogin: %s\n", version)
 			fmt.Fprintf(cmd.OutOrStdout(), "buildTime: %s\n", buildTime)

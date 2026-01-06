@@ -5,8 +5,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/nerdneilsfield/seulogin/cmd"
-	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
+	"github.com/SmartFPGATutor/seulogin/cmd"
+	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
 	"go.uber.org/zap"
 )
 

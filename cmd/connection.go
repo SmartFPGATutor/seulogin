@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/nerdneilsfield/seulogin/pkg/network"
+	"github.com/SmartFPGATutor/seulogin/pkg/network"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )

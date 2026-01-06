@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
+	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
 	"github.com/spf13/cobra"
 )
 
@@ -37,6 +37,7 @@ func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Comma
 	cmd.AddCommand(newConnectionCmd())
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newCronCmd())
+	cmd.AddCommand(newTuiCmd(cmd))
 	return cmd
 }
 

@@ -3,9 +3,9 @@ package login
 import (
 	"slices"
 
-	"github.com/nerdneilsfield/seulogin/internal/configs"
-	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
-	"github.com/nerdneilsfield/seulogin/pkg/seulogin"
+	"github.com/SmartFPGATutor/seulogin/internal/configs"
+	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
+	"github.com/SmartFPGATutor/seulogin/pkg/seulogin"
 	"go.uber.org/zap"
 )
 

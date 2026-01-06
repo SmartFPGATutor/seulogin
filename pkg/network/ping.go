@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
+	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
 	"go.uber.org/zap"
 )
 

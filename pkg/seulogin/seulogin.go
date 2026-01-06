@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/buger/jsonparser"
-	loggerPkg "github.com/nerdneilsfield/seulogin/pkg/logger"
+	loggerPkg "github.com/SmartFPGATutor/seulogin/pkg/logger"
 	"go.uber.org/zap"
 )
 
