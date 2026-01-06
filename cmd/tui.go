@@ -2,70 +2,96 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
+	"os"
+	"path/filepath"
 	"strings"
-	"text/tabwriter"
+	"time"
 
-	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/key"
+	"github.com/SmartFPGATutor/seulogin/internal/configs"
+	"github.com/SmartFPGATutor/seulogin/internal/login"
+	"github.com/SmartFPGATutor/seulogin/pkg/network"
+	"github.com/SmartFPGATutor/seulogin/pkg/seulogin"
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
-type commandItem struct {
+type menuID int
+
+const (
+	menuLogin menuID = iota
+	menuCron
+	menuNetwork
+	menuStatus
+	menuQuit
+)
+
+type menuItem struct {
+	id    menuID
+	title string
+	desc  string
+}
+
+func (i menuItem) Title() string       { return i.title }
+func (i menuItem) Description() string { return i.desc }
+func (i menuItem) FilterValue() string { return i.title }
+
+type netAction int
+
+const (
+	netActionWAN netAction = iota
+	netActionLoginServer
+	netActionSeuLan
+	netActionPing
+	netActionTCP
+	netActionHTTP
+)
+
+type loginResultMsg struct {
+	success bool
+	message string
+}
+
+type networkResultMsg struct {
+	action string
+	err    error
+	result string
+}
+
+type cronStartMsg struct {
+	cron *cron.Cron
+	err  error
+	expr string
 	path string
-	cmd  *cobra.Command
-}
-
-func (i commandItem) Title() string {
-	return i.path
-}
-
-func (i commandItem) Description() string {
-	if i.cmd.Short == "" {
-		return "No description"
-	}
-	return i.cmd.Short
-}
-
-func (i commandItem) FilterValue() string {
-	return i.path + " " + i.cmd.Short
-}
-
-type keyMap struct {
-	Up          key.Binding
-	Down        key.Binding
-	Filter      key.Binding
-	ClearFilter key.Binding
-	Help        key.Binding
-	Quit        key.Binding
-}
-
-func (k keyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Help, k.Filter, k.Quit}
-}
-
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.Up, k.Down, k.Filter},
-		{k.ClearFilter, k.Help, k.Quit},
-	}
 }
 
 type tuiModel struct {
-	list       list.Model
-	help       help.Model
-	keys       keyMap
-	root       *cobra.Command
-	width      int
-	height     int
-	showHelp   bool
-	leftWidth  int
-	rightWidth int
-	bodyHeight int
+	menu         list.Model
+	active       menuID
+	width        int
+	height       int
+	leftWidth    int
+	rightWidth   int
+	bodyHeight   int
+	status       []string
+	lastResult   string
+	cron         *cron.Cron
+	cronExpr     string
+	cronPath     string
+	cronRunning  bool
+	loginInputs  []textinput.Model
+	loginFocus   int
+	loginRawIP   bool
+	cronInput    textinput.Model
+	cronFocus    int
+	netAction    netAction
+	netInputOn   bool
+	netPingInput textinput.Model
+	netTCPInput  textinput.Model
+	netHTTPInput textinput.Model
 }
 
 var (
@@ -90,42 +116,47 @@ var (
 
 	dimStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#94A3B8"))
+
+	accentStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#22D3EE"))
+
+	buttonStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#0EA5E9")).
+			Padding(0, 1)
+
+	buttonActiveStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color("#F97316")).
+				Background(lipgloss.Color("#1E293B")).
+				Foreground(lipgloss.Color("#FCD34D")).
+				Padding(0, 1)
 )
 
-func newTuiCmd(root *cobra.Command) *cobra.Command {
+func newTuiCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "tui",
-		Short:        "Interactive TUI for commands and options",
+		Short:        "Interactive TUI for login and network operations",
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			items := collectCommandItems(root)
-			l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-			l.Title = "SEULogin Commands"
-			l.SetFilteringEnabled(true)
-			l.SetShowHelp(false)
-			l.Styles.Title = titleStyle
-			l.Styles.FilterPrompt = dimStyle
-			l.Styles.FilterCursor = dimStyle
-
-			keys := keyMap{
-				Up:          key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up")),
-				Down:        key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down")),
-				Filter:      key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
-				ClearFilter: key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "clear")),
-				Help:        key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
-				Quit:        key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
+			items := []list.Item{
+				menuItem{id: menuLogin, title: "Login", desc: "账号登录"},
+				menuItem{id: menuCron, title: "Cron", desc: "定时任务"},
+				menuItem{id: menuNetwork, title: "Network", desc: "网络检测"},
+				menuItem{id: menuStatus, title: "Status", desc: "操作记录"},
+				menuItem{id: menuQuit, title: "Quit", desc: "退出"},
 			}
 
-			m := tuiModel{
-				list:     l,
-				help:     help.New(),
-				keys:     keys,
-				root:     root,
-				showHelp: true,
-			}
+			menu := list.New(items, list.NewDefaultDelegate(), 0, 0)
+			menu.Title = "SEULogin"
+			menu.SetFilteringEnabled(false)
+			menu.SetShowHelp(false)
+			menu.Styles.Title = titleStyle
 
-			p := tea.NewProgram(m, tea.WithAltScreen())
+			model := newTuiModel(menu)
+			p := tea.NewProgram(model, tea.WithAltScreen())
 			if _, err := p.Run(); err != nil {
 				return fmt.Errorf("run tui: %w", err)
 			}
@@ -136,24 +167,64 @@ func newTuiCmd(root *cobra.Command) *cobra.Command {
 	return cmd
 }
 
-func (m tuiModel) Init() tea.Cmd {
-	return nil
+func newTuiModel(menu list.Model) tuiModel {
+	loginInputs := make([]textinput.Model, 3)
+	loginInputs[0] = textinput.New()
+	loginInputs[0].Placeholder = "username"
+	loginInputs[0].Prompt = "用户名: "
+	loginInputs[0].Focus()
+
+	loginInputs[1] = textinput.New()
+	loginInputs[1].Placeholder = "password"
+	loginInputs[1].Prompt = "密码: "
+	loginInputs[1].EchoMode = textinput.EchoPassword
+	loginInputs[1].EchoCharacter = '*'
+
+	loginInputs[2] = textinput.New()
+	loginInputs[2].Placeholder = "10.0.0.1"
+	loginInputs[2].Prompt = "IP: "
+
+	cronInput := textinput.New()
+	cronInput.Prompt = "配置路径: "
+	cronInput.SetValue(defaultConfigPath())
+
+	pingInput := textinput.New()
+	pingInput.Prompt = "Ping: "
+	pingInput.Placeholder = "host"
+
+	tcpInput := textinput.New()
+	tcpInput.Prompt = "TCP: "
+	tcpInput.Placeholder = "host:port"
+
+	httpInput := textinput.New()
+	httpInput.Prompt = "HTTP: "
+	httpInput.Placeholder = "https://..."
+
+	return tuiModel{
+		menu:         menu,
+		active:       menuLogin,
+		loginInputs:  loginInputs,
+		loginFocus:   0,
+		loginRawIP:   false,
+		cronInput:    cronInput,
+		cronFocus:    0,
+		netAction:    netActionWAN,
+		netPingInput: pingInput,
+		netTCPInput:  tcpInput,
+		netHTTPInput: httpInput,
+		status:       []string{timestamped("TUI started")},
+	}
 }
+
+func (m tuiModel) Init() tea.Cmd { return nil }
 
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, m.keys.Quit):
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.stopCron()
 			return m, tea.Quit
-		case key.Matches(msg, m.keys.Help):
-			m.showHelp = !m.showHelp
-		case key.Matches(msg, m.keys.ClearFilter):
-			if m.list.FilterState() != list.Filtering && m.list.FilterState() != list.FilterApplied {
-				break
-			}
-			m.list.ResetFilter()
-			return m, nil
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -161,9 +232,67 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reflow()
 	}
 
+	switch msg := msg.(type) {
+	case loginResultMsg:
+		if msg.success {
+			m.lastResult = "Login success"
+			m.appendStatus("Login success")
+		} else {
+			m.lastResult = fmt.Sprintf("Login failed: %s", msg.message)
+			m.appendStatus(m.lastResult)
+		}
+		return m, nil
+	case networkResultMsg:
+		if msg.err != nil {
+			m.lastResult = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
+		} else {
+			m.lastResult = msg.result
+		}
+		m.appendStatus(m.lastResult)
+		return m, nil
+	case cronStartMsg:
+		if msg.err != nil {
+			m.lastResult = fmt.Sprintf("Cron failed: %v", msg.err)
+			m.appendStatus(m.lastResult)
+			return m, nil
+		}
+		m.cron = msg.cron
+		m.cronExpr = msg.expr
+		m.cronPath = msg.path
+		m.cronRunning = true
+		m.lastResult = fmt.Sprintf("Cron started (%s)", msg.expr)
+		m.appendStatus(m.lastResult)
+		return m, nil
+	}
+
 	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
+	m.menu, cmd = m.menu.Update(msg)
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if msg.String() == "enter" {
+			if item, ok := m.menu.SelectedItem().(menuItem); ok {
+				switch item.id {
+				case menuQuit:
+					m.stopCron()
+					return m, tea.Quit
+				default:
+					m.active = item.id
+				}
+			}
+		}
+	}
+
+	switch m.active {
+	case menuLogin:
+		return m.updateLogin(msg, cmd)
+	case menuCron:
+		return m.updateCron(msg, cmd)
+	case menuNetwork:
+		return m.updateNetwork(msg, cmd)
+	default:
+		return m, cmd
+	}
 }
 
 func (m tuiModel) View() string {
@@ -171,7 +300,7 @@ func (m tuiModel) View() string {
 		return "Loading..."
 	}
 
-	header := headerStyle.Width(m.width).Render("SEULogin · Command Explorer")
+	header := headerStyle.Width(m.width).Render("SEULogin · Control Center")
 	body := m.renderBody()
 	footer := m.renderFooter()
 
@@ -183,165 +312,476 @@ func (m *tuiModel) reflow() {
 		return
 	}
 
-	left := int(float64(m.width) * 0.38)
-	if left < 30 {
-		left = 30
+	left := int(float64(m.width) * 0.3)
+	if left < 24 {
+		left = 24
 	}
-	if left > m.width-24 {
-		left = m.width - 24
-	}
-	if left < 20 {
-		left = 20
+	if left > m.width-30 {
+		left = m.width - 30
 	}
 
 	right := m.width - left - 1
-	if right < 20 {
-		right = 20
+	if right < 30 {
+		right = 30
 	}
 
 	headerHeight := 1
 	footerHeight := 1
 	bodyHeight := m.height - headerHeight - footerHeight
-	if bodyHeight < 6 {
-		bodyHeight = 6
+	if bodyHeight < 8 {
+		bodyHeight = 8
 	}
 
 	m.leftWidth = left
 	m.rightWidth = right
 	m.bodyHeight = bodyHeight
 
-	m.list.SetSize(left-6, bodyHeight-4)
+	m.menu.SetSize(left-4, bodyHeight-4)
 }
 
 func (m tuiModel) renderBody() string {
-	left := panelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.list.View())
-	right := panelStyle.Width(m.rightWidth).Height(m.bodyHeight).Render(m.renderDetails())
+	left := panelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.menu.View())
+	right := panelStyle.Width(m.rightWidth).Height(m.bodyHeight).Render(m.renderRight())
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
 func (m tuiModel) renderFooter() string {
-	if !m.showHelp {
-		return dimStyle.Width(m.width).Render("Press ? to show help")
+	hint := "Tab: next field · Enter: action · Q: quit"
+	if m.active == menuNetwork && m.netInputOn {
+		hint = "Tab/Esc: back · Enter: run · Q: quit"
 	}
-	return dimStyle.Width(m.width).Render(m.help.View(m.keys))
+	return dimStyle.Width(m.width).Render(hint)
 }
 
-func (m tuiModel) renderDetails() string {
-	item, ok := m.list.SelectedItem().(commandItem)
-	if !ok || item.cmd == nil {
-		return "Select a command to see its options."
+func (m tuiModel) renderRight() string {
+	switch m.active {
+	case menuLogin:
+		return m.renderLogin()
+	case menuCron:
+		return m.renderCron()
+	case menuNetwork:
+		return m.renderNetwork()
+	case menuStatus:
+		return m.renderStatus()
+	default:
+		return ""
 	}
-
-	cmd := item.cmd
-	sections := []string{
-		titleStyle.Render(cmd.CommandPath()),
-	}
-	if cmd.Short != "" {
-		sections = append(sections, dimStyle.Render(cmd.Short))
-	}
-
-	sections = append(sections,
-		sectionStyle.Render("Usage"),
-		cmd.UseLine(),
-	)
-
-	localFlags := collectFlags(cmd.NonInheritedFlags())
-	if len(localFlags) > 0 {
-		sections = append(sections, sectionStyle.Render("Flags"))
-		sections = append(sections, formatFlags(localFlags))
-	}
-
-	inheritedFlags := collectFlags(cmd.InheritedFlags())
-	if len(inheritedFlags) > 0 {
-		sections = append(sections, sectionStyle.Render("Inherited Flags"))
-		sections = append(sections, formatFlags(inheritedFlags))
-	}
-
-	return strings.Join(sections, "\n\n")
 }
 
-func collectCommandItems(root *cobra.Command) []list.Item {
-	items := []list.Item{}
-	if root != nil {
-		items = append(items, commandItem{path: root.CommandPath(), cmd: root})
+func (m tuiModel) renderLogin() string {
+	rows := []string{
+		titleStyle.Render("Login"),
+		"",
+		m.loginInputs[0].View(),
+		m.loginInputs[1].View(),
+		m.loginInputs[2].View(),
+		"",
+		m.renderToggle("Raw IP", m.loginRawIP),
+		"",
+		m.renderButton("Run login", m.loginFocus == 3),
 	}
 
-	var walk func(cmd *cobra.Command)
-	walk = func(cmd *cobra.Command) {
-		for _, sub := range cmd.Commands() {
-			if sub.Hidden || sub.Deprecated != "" {
-				continue
+	if m.lastResult != "" {
+		rows = append(rows, "", sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
+	}
+	return strings.Join(rows, "\n")
+}
+
+func (m tuiModel) renderCron() string {
+	status := "Stopped"
+	if m.cronRunning {
+		status = fmt.Sprintf("Running (%s)", m.cronExpr)
+	}
+
+	rows := []string{
+		titleStyle.Render("Cron"),
+		"",
+		m.cronInput.View(),
+		"",
+		fmt.Sprintf("Status: %s", status),
+		"",
+		lipgloss.JoinHorizontal(lipgloss.Left,
+			m.renderButton("Start", m.cronFocus == 1),
+			" ",
+			m.renderButton("Stop", m.cronFocus == 2),
+		),
+	}
+
+	if m.lastResult != "" {
+		rows = append(rows, "", sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
+	}
+	return strings.Join(rows, "\n")
+}
+
+func (m tuiModel) renderNetwork() string {
+	rows := []string{
+		titleStyle.Render("Network"),
+		"",
+		m.renderNetAction(netActionWAN, "Check WAN"),
+		m.renderNetAction(netActionLoginServer, "Check Login Server"),
+		m.renderNetAction(netActionSeuLan, "Check SEU LAN"),
+		"",
+		m.renderNetAction(netActionPing, "Ping host"),
+		m.netPingInput.View(),
+		"",
+		m.renderNetAction(netActionTCP, "TCP host:port"),
+		m.netTCPInput.View(),
+		"",
+		m.renderNetAction(netActionHTTP, "HTTP url"),
+		m.netHTTPInput.View(),
+	}
+
+	if m.lastResult != "" {
+		rows = append(rows, "", sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
+	}
+	return strings.Join(rows, "\n")
+}
+
+func (m tuiModel) renderStatus() string {
+	rows := []string{titleStyle.Render("Status")}
+	if len(m.status) == 0 {
+		rows = append(rows, dimStyle.Render("No activity yet."))
+		return strings.Join(rows, "\n")
+	}
+
+	maxLines := m.bodyHeight - 4
+	if maxLines < 1 {
+		maxLines = 1
+	}
+
+	start := 0
+	if len(m.status) > maxLines {
+		start = len(m.status) - maxLines
+	}
+
+	rows = append(rows, m.status[start:]...)
+	return strings.Join(rows, "\n")
+}
+
+func (m tuiModel) renderToggle(label string, value bool) string {
+	state := "off"
+	if value {
+		state = "on"
+	}
+	return fmt.Sprintf("%s: %s", label, accentStyle.Render(state))
+}
+
+func (m tuiModel) renderButton(label string, active bool) string {
+	if active {
+		return buttonActiveStyle.Render(label)
+	}
+	return buttonStyle.Render(label)
+}
+
+func (m tuiModel) renderNetAction(action netAction, label string) string {
+	prefix := "  "
+	if m.netAction == action && !m.netInputOn {
+		prefix = "> "
+	}
+	return fmt.Sprintf("%s%s", prefix, label)
+}
+
+func (m tuiModel) updateLogin(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "tab":
+			m.loginFocus = (m.loginFocus + 1) % 4
+			for i := range m.loginInputs {
+				if i == m.loginFocus {
+					m.loginInputs[i].Focus()
+				} else {
+					m.loginInputs[i].Blur()
+				}
 			}
-			if sub.Name() == "help" || sub.Name() == "tui" {
-				continue
+			return m, cmd
+		case "r":
+			m.loginRawIP = !m.loginRawIP
+			return m, cmd
+		case "enter":
+			if m.loginFocus == 3 {
+				return m, m.runLogin()
 			}
-			items = append(items, commandItem{path: sub.CommandPath(), cmd: sub})
-			walk(sub)
 		}
 	}
 
-	if root != nil {
-		walk(root)
+	if m.loginFocus < len(m.loginInputs) {
+		var inputCmd tea.Cmd
+		m.loginInputs[m.loginFocus], inputCmd = m.loginInputs[m.loginFocus].Update(msg)
+		return m, tea.Batch(cmd, inputCmd)
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		left, okLeft := items[i].(commandItem)
-		right, okRight := items[j].(commandItem)
-		if !okLeft || !okRight {
-			return false
+	return m, cmd
+}
+
+func (m tuiModel) updateCron(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "tab":
+			m.cronFocus = (m.cronFocus + 1) % 3
+			if m.cronFocus == 0 {
+				m.cronInput.Focus()
+			} else {
+				m.cronInput.Blur()
+			}
+			return m, cmd
+		case "enter":
+			switch m.cronFocus {
+			case 1:
+				return m, m.startCron()
+			case 2:
+				m.stopCron()
+				m.appendStatus("Cron stopped")
+				m.lastResult = "Cron stopped"
+				return m, cmd
+			}
 		}
-		return left.path < right.path
-	})
+	}
 
-	return items
+	if m.cronFocus == 0 {
+		var inputCmd tea.Cmd
+		m.cronInput, inputCmd = m.cronInput.Update(msg)
+		return m, tea.Batch(cmd, inputCmd)
+	}
+
+	return m, cmd
 }
 
-type flagInfo struct {
-	name      string
-	shorthand string
-	usage     string
-	defValue  string
+func (m tuiModel) updateNetwork(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if m.netInputOn {
+			switch keyMsg.String() {
+			case "tab", "esc":
+				m.netInputOn = false
+				m.blurNetInputs()
+				return m, cmd
+			case "enter":
+				m.netInputOn = false
+				m.blurNetInputs()
+				return m, m.runNetworkAction()
+			}
+		} else {
+			switch keyMsg.String() {
+			case "up", "k":
+				if m.netAction > 0 {
+					m.netAction--
+				}
+				return m, cmd
+			case "down", "j":
+				if m.netAction < netActionHTTP {
+					m.netAction++
+				}
+				return m, cmd
+			case "tab":
+				if m.netAction == netActionPing || m.netAction == netActionTCP || m.netAction == netActionHTTP {
+					m.netInputOn = true
+					m.focusNetInput()
+					return m, cmd
+				}
+			case "enter":
+				return m, m.runNetworkAction()
+			}
+		}
+	}
+
+	if m.netInputOn {
+		input := m.activeNetInput()
+		if input != nil {
+			updated, inputCmd := input.Update(msg)
+			switch m.netAction {
+			case netActionPing:
+				m.netPingInput = updated
+			case netActionTCP:
+				m.netTCPInput = updated
+			case netActionHTTP:
+				m.netHTTPInput = updated
+			}
+			return m, tea.Batch(cmd, inputCmd)
+		}
+	}
+
+	return m, cmd
 }
 
-func collectFlags(flags *pflag.FlagSet) []flagInfo {
-	if flags == nil {
+func (m *tuiModel) focusNetInput() {
+	m.blurNetInputs()
+	if input := m.activeNetInput(); input != nil {
+		input.Focus()
+	}
+}
+
+func (m *tuiModel) blurNetInputs() {
+	m.netPingInput.Blur()
+	m.netTCPInput.Blur()
+	m.netHTTPInput.Blur()
+}
+
+func (m *tuiModel) activeNetInput() *textinput.Model {
+	switch m.netAction {
+	case netActionPing:
+		return &m.netPingInput
+	case netActionTCP:
+		return &m.netTCPInput
+	case netActionHTTP:
+		return &m.netHTTPInput
+	default:
+		return nil
+	}
+}
+
+func (m *tuiModel) runLogin() tea.Cmd {
+	username := strings.TrimSpace(m.loginInputs[0].Value())
+	password := m.loginInputs[1].Value()
+	ip := strings.TrimSpace(m.loginInputs[2].Value())
+	if username == "" || password == "" || ip == "" {
+		m.lastResult = "Login requires username, password, and IP"
+		m.appendStatus(m.lastResult)
 		return nil
 	}
 
-	var out []flagInfo
-	flags.VisitAll(func(flag *pflag.Flag) {
-		out = append(out, flagInfo{
-			name:      flag.Name,
-			shorthand: flag.Shorthand,
-			usage:     flag.Usage,
-			defValue:  flag.DefValue,
-		})
-	})
+	m.lastResult = "Logging in..."
+	m.appendStatus(m.lastResult)
 
-	sort.Slice(out, func(i, j int) bool {
-		return out[i].name < out[j].name
-	})
-	return out
+	return func() tea.Msg {
+		success, message := seulogin.LoginToSeulogin(username, password, ip, m.loginRawIP)
+		return loginResultMsg{success: success, message: message}
+	}
 }
 
-func formatFlags(flags []flagInfo) string {
-	if len(flags) == 0 {
-		return ""
+func (m *tuiModel) startCron() tea.Cmd {
+	path := strings.TrimSpace(m.cronInput.Value())
+	if path == "" {
+		m.lastResult = "Cron requires config path"
+		m.appendStatus(m.lastResult)
+		return nil
 	}
 
-	var builder strings.Builder
-	writer := tabwriter.NewWriter(&builder, 0, 2, 2, ' ', 0)
-	for _, flag := range flags {
-		label := "--" + flag.name
-		if flag.shorthand != "" {
-			label = "-" + flag.shorthand + ", " + label
+	resolved := expandPath(path)
+	m.lastResult = "Starting cron..."
+	m.appendStatus(m.lastResult)
+
+	return func() tea.Msg {
+		if err := configs.CheckConfig(resolved); err != nil {
+			return cronStartMsg{err: err}
 		}
-		desc := flag.usage
-		if flag.defValue != "" {
-			desc = fmt.Sprintf("%s (default: %s)", desc, flag.defValue)
+		cfg, err := configs.LoadConfig(resolved)
+		if err != nil {
+			return cronStartMsg{err: err}
 		}
-		fmt.Fprintf(writer, "%s\t%s\n", label, desc)
+		if cfg.CronExp == nil {
+			return cronStartMsg{err: fmt.Errorf("cron_exp is not set")}
+		}
+
+		login.CheckConnectionOrLogin(cfg)
+
+		c := cron.New()
+		_, err = c.AddFunc(*cfg.CronExp, func() {
+			login.CheckConnectionOrLogin(cfg)
+		})
+		if err != nil {
+			return cronStartMsg{err: err}
+		}
+		c.Start()
+
+		return cronStartMsg{cron: c, expr: *cfg.CronExp, path: resolved}
 	}
-	writer.Flush()
-	return builder.String()
+}
+
+func (m *tuiModel) stopCron() {
+	if m.cron != nil {
+		m.cron.Stop()
+	}
+	m.cron = nil
+	m.cronRunning = false
+	m.cronExpr = ""
+}
+
+func (m *tuiModel) runNetworkAction() tea.Cmd {
+	switch m.netAction {
+	case netActionWAN:
+		m.appendStatus("Checking WAN...")
+		return func() tea.Msg {
+			err := network.CheckWanConnection()
+			return networkResultMsg{action: "WAN", err: err, result: "WAN connection ok"}
+		}
+	case netActionLoginServer:
+		m.appendStatus("Checking login server...")
+		return func() tea.Msg {
+			err := network.CheckConnectionToLoginServer()
+			return networkResultMsg{action: "Login server", err: err, result: "Login server reachable"}
+		}
+	case netActionSeuLan:
+		m.appendStatus("Checking SEU LAN...")
+		return func() tea.Msg {
+			err := network.CheckSeuLanConnection()
+			return networkResultMsg{action: "SEU LAN", err: err, result: "SEU LAN reachable"}
+		}
+	case netActionPing:
+		host := strings.TrimSpace(m.netPingInput.Value())
+		if host == "" {
+			m.lastResult = "Ping requires host"
+			m.appendStatus(m.lastResult)
+			return nil
+		}
+		m.appendStatus(fmt.Sprintf("Ping %s", host))
+		return func() tea.Msg {
+			result, err := network.Ping(host)
+			return networkResultMsg{action: "Ping", err: err, result: result}
+		}
+	case netActionTCP:
+		host := strings.TrimSpace(m.netTCPInput.Value())
+		if host == "" {
+			m.lastResult = "TCP requires host:port"
+			m.appendStatus(m.lastResult)
+			return nil
+		}
+		m.appendStatus(fmt.Sprintf("TCP %s", host))
+		return func() tea.Msg {
+			result, err := network.TCPPing(host)
+			return networkResultMsg{action: "TCP", err: err, result: result}
+		}
+	case netActionHTTP:
+		url := strings.TrimSpace(m.netHTTPInput.Value())
+		if url == "" {
+			m.lastResult = "HTTP requires URL"
+			m.appendStatus(m.lastResult)
+			return nil
+		}
+		m.appendStatus(fmt.Sprintf("HTTP %s", url))
+		return func() tea.Msg {
+			result, err := network.HttpConnect(url)
+			return networkResultMsg{action: "HTTP", err: err, result: result}
+		}
+	default:
+		return nil
+	}
+}
+
+func (m *tuiModel) appendStatus(line string) {
+	m.status = append(m.status, timestamped(line))
+	if len(m.status) > 200 {
+		m.status = m.status[len(m.status)-200:]
+	}
+}
+
+func timestamped(line string) string {
+	return fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), line)
+}
+
+func defaultConfigPath() string {
+	return "~/.config/seulogin/config.toml"
+}
+
+func expandPath(path string) string {
+	if path == "" {
+		return path
+	}
+	if path == "~" {
+		home, _ := os.UserHomeDir()
+		return home
+	}
+	if strings.HasPrefix(path, "~/") {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, strings.TrimPrefix(path, "~/"))
+	}
+	return path
 }

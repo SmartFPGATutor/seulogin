@@ -37,7 +37,7 @@ func newRootCmd(version string, buildTime string, gitCommit string) *cobra.Comma
 	cmd.AddCommand(newConnectionCmd())
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newCronCmd())
-	cmd.AddCommand(newTuiCmd(cmd))
+	cmd.AddCommand(newTuiCmd())
 	return cmd
 }
 
