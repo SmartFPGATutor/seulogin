@@ -47,14 +47,33 @@ const (
 	netActionWAN netAction = iota
 	netActionLoginServer
 	netActionSeuLan
-	netActionPing
-	netActionTCP
 	netActionHTTP
 )
+
+type loginField int
+
+const (
+	loginFieldUser loginField = iota
+	loginFieldPass
+	loginFieldIP
+	loginFieldUPnP
+	loginFieldUPnPFetch
+	loginFieldRun
+)
+
+type ifaceOption struct {
+	name string
+	ip   string
+}
 
 type loginResultMsg struct {
 	success bool
 	message string
+}
+
+type upnpResultMsg struct {
+	ip  string
+	err error
 }
 
 type networkResultMsg struct {
@@ -76,29 +95,32 @@ type panicMsg struct {
 }
 
 type tuiModel struct {
-	menu         list.Model
-	active       menuID
-	width        int
-	height       int
-	leftWidth    int
-	rightWidth   int
-	bodyHeight   int
-	status       []string
-	lastResult   string
-	cron         *cron.Cron
-	cronExpr     string
-	cronPath     string
-	cronRunning  bool
-	loginInputs  []textinput.Model
-	loginFocus   int
-	loginRawIP   bool
-	cronInput    textinput.Model
-	cronFocus    int
-	netAction    netAction
-	netInputOn   bool
-	netPingInput textinput.Model
-	netTCPInput  textinput.Model
-	netHTTPInput textinput.Model
+	menu           list.Model
+	active         menuID
+	width          int
+	height         int
+	leftWidth      int
+	rightWidth     int
+	bodyHeight     int
+	status         []string
+	lastResult     string
+	cron           *cron.Cron
+	cronExpr       string
+	cronPath       string
+	cronRunning    bool
+	loginInputs    []textinput.Model
+	loginFocus     int
+	loginRawIP     bool
+	loginUseUPnP   bool
+	loginUpnpInput textinput.Model
+	upnpOptions    []ifaceOption
+	upnpIndex      int
+	upnpLoadErr    string
+	cronInput      textinput.Model
+	cronFocus      int
+	netAction      netAction
+	netInputOn     bool
+	netHTTPInput   textinput.Model
 }
 
 var (
@@ -205,35 +227,35 @@ func newTuiModel(menu list.Model) tuiModel {
 	loginInputs[2].Placeholder = "10.0.0.1"
 	loginInputs[2].Prompt = "IP: "
 
+	upnpInput := textinput.New()
+	upnpInput.Placeholder = "eth0 / wlan0"
+	upnpInput.Prompt = "UPnP 接口: "
+
 	cronInput := textinput.New()
 	cronInput.Prompt = "配置路径: "
 	cronInput.SetValue(defaultConfigPath())
-
-	pingInput := textinput.New()
-	pingInput.Prompt = "Ping: "
-	pingInput.Placeholder = "host"
-
-	tcpInput := textinput.New()
-	tcpInput.Prompt = "TCP: "
-	tcpInput.Placeholder = "host:port"
 
 	httpInput := textinput.New()
 	httpInput.Prompt = "HTTP: "
 	httpInput.Placeholder = "https://..."
 
+	upnpOptions, upnpErr := loadUpnpOptions()
+
 	return tuiModel{
-		menu:         menu,
-		active:       menuLogin,
-		loginInputs:  loginInputs,
-		loginFocus:   0,
-		loginRawIP:   false,
-		cronInput:    cronInput,
-		cronFocus:    0,
-		netAction:    netActionWAN,
-		netPingInput: pingInput,
-		netTCPInput:  tcpInput,
-		netHTTPInput: httpInput,
-		status:       []string{timestamped("TUI started")},
+		menu:           menu,
+		active:         menuLogin,
+		loginInputs:    loginInputs,
+		loginFocus:     0,
+		loginRawIP:     false,
+		loginUseUPnP:   false,
+		loginUpnpInput: upnpInput,
+		upnpOptions:    upnpOptions,
+		upnpLoadErr:    upnpErr,
+		cronInput:      cronInput,
+		cronFocus:      0,
+		netAction:      netActionWAN,
+		netHTTPInput:   httpInput,
+		status:         []string{timestamped("TUI started")},
 	}
 }
 
@@ -273,6 +295,16 @@ func (m tuiModel) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 			m.lastResult = fmt.Sprintf("Login failed: %s", msg.message)
 			m.appendStatus(m.lastResult)
 		}
+		return m, nil
+	case upnpResultMsg:
+		if msg.err != nil {
+			m.lastResult = fmt.Sprintf("UPnP IP failed: %v", msg.err)
+			m.appendStatus(m.lastResult)
+			return m, nil
+		}
+		m.loginInputs[2].SetValue(msg.ip)
+		m.lastResult = fmt.Sprintf("UPnP IP: %s", msg.ip)
+		m.appendStatus(m.lastResult)
 		return m, nil
 	case panicMsg:
 		m.lastResult = fmt.Sprintf("TUI panic (%s): %v", msg.where, msg.value)
@@ -454,10 +486,35 @@ func (m tuiModel) renderLogin() string {
 		m.loginInputs[1].View(),
 		m.loginInputs[2].View(),
 		"",
+		m.renderToggle("UPnP IP", m.loginUseUPnP),
+	}
+	if m.loginUseUPnP {
+		rows = append(rows, m.loginUpnpInput.View(), dimStyle.Render("UPnP 开启时忽略 IP 输入"))
+		if m.upnpLoadErr != "" {
+			rows = append(rows, dimStyle.Render("UPnP 接口获取失败: "+m.upnpLoadErr))
+		} else if len(m.upnpOptions) == 0 {
+			rows = append(rows, dimStyle.Render("未找到可用网卡"))
+		} else {
+			rows = append(rows, sectionStyle.Render("Interfaces (↑/↓ 选择)"))
+			for i, opt := range m.upnpOptions {
+				prefix := "  "
+				if i == m.upnpIndex {
+					prefix = "> "
+				}
+				rows = append(rows, fmt.Sprintf("%s%s (%s)", prefix, opt.name, opt.ip))
+			}
+		}
+		rows = append(rows, "", m.renderButton("Fetch UPnP IP", m.currentLoginField() == loginFieldUPnPFetch))
+		if resolved := strings.TrimSpace(m.loginInputs[2].Value()); resolved != "" {
+			rows = append(rows, dimStyle.Render("Resolved IP: "+resolved))
+		}
+	}
+	rows = append(rows,
+		"",
 		m.renderToggle("Raw IP", m.loginRawIP),
 		"",
-		m.renderButton("Run login", m.loginFocus == 3),
-	}
+		m.renderButton("Run login", m.currentLoginField() == loginFieldRun),
+	)
 
 	if m.lastResult != "" {
 		rows = append(rows, "", sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
@@ -499,13 +556,7 @@ func (m tuiModel) renderNetwork() string {
 		m.renderNetAction(netActionLoginServer, "Check Login Server"),
 		m.renderNetAction(netActionSeuLan, "Check SEU LAN"),
 		"",
-		m.renderNetAction(netActionPing, "Ping host"),
-		m.netPingInput.View(),
-		"",
-		m.renderNetAction(netActionTCP, "TCP host:port"),
-		m.netTCPInput.View(),
-		"",
-		m.renderNetAction(netActionHTTP, "HTTP url"),
+		m.renderNetAction(netActionHTTP, "HTTP url (curl)"),
 		m.netHTTPInput.View(),
 	}
 
@@ -559,33 +610,170 @@ func (m tuiModel) renderNetAction(action netAction, label string) string {
 	return fmt.Sprintf("%s%s", prefix, label)
 }
 
+func loadUpnpOptions() ([]ifaceOption, string) {
+	infos, err := network.ListUsableInterfaces()
+	if err != nil {
+		return nil, err.Error()
+	}
+	options := make([]ifaceOption, 0, len(infos))
+	for _, info := range infos {
+		options = append(options, ifaceOption{name: info.Name, ip: info.IP})
+	}
+	return options, ""
+}
+
+func (m *tuiModel) setUpnpFromIndex() {
+	if len(m.upnpOptions) == 0 {
+		return
+	}
+	if m.upnpIndex < 0 {
+		m.upnpIndex = 0
+	}
+	if m.upnpIndex >= len(m.upnpOptions) {
+		m.upnpIndex = len(m.upnpOptions) - 1
+	}
+	m.loginUpnpInput.SetValue(m.upnpOptions[m.upnpIndex].name)
+}
+
+func (m tuiModel) loginFocusOrder() []loginField {
+	fields := []loginField{loginFieldUser, loginFieldPass}
+	if !m.loginUseUPnP {
+		fields = append(fields, loginFieldIP)
+	} else {
+		fields = append(fields, loginFieldUPnP, loginFieldUPnPFetch)
+	}
+	fields = append(fields, loginFieldRun)
+	return fields
+}
+
+func (m *tuiModel) syncLoginFocus() {
+	for i := range m.loginInputs {
+		m.loginInputs[i].Blur()
+	}
+	m.loginUpnpInput.Blur()
+
+	order := m.loginFocusOrder()
+	if len(order) == 0 {
+		return
+	}
+	if m.loginFocus < 0 {
+		m.loginFocus = 0
+	}
+	if m.loginFocus >= len(order) {
+		m.loginFocus = len(order) - 1
+	}
+
+	switch order[m.loginFocus] {
+	case loginFieldUser:
+		m.loginInputs[0].Focus()
+	case loginFieldPass:
+		m.loginInputs[1].Focus()
+	case loginFieldIP:
+		m.loginInputs[2].Focus()
+	case loginFieldUPnP:
+		m.loginUpnpInput.Focus()
+	case loginFieldUPnPFetch:
+	case loginFieldRun:
+	default:
+	}
+}
+
+func (m tuiModel) currentLoginField() loginField {
+	order := m.loginFocusOrder()
+	if len(order) == 0 {
+		return loginFieldRun
+	}
+	if m.loginFocus < 0 {
+		return order[0]
+	}
+	if m.loginFocus >= len(order) {
+		return order[len(order)-1]
+	}
+	return order[m.loginFocus]
+}
+
 func (m tuiModel) updateLogin(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
-		case "tab":
-			m.loginFocus = (m.loginFocus + 1) % 4
-			for i := range m.loginInputs {
-				if i == m.loginFocus {
-					m.loginInputs[i].Focus()
-				} else {
-					m.loginInputs[i].Blur()
+		if m.loginUseUPnP && (m.currentLoginField() == loginFieldUPnP || m.currentLoginField() == loginFieldUPnPFetch) {
+			switch keyMsg.String() {
+			case "up", "k":
+				if len(m.upnpOptions) > 0 {
+					if m.upnpIndex > 0 {
+						m.upnpIndex--
+					}
+					m.setUpnpFromIndex()
+					return m, cmd
+				}
+			case "down", "j":
+				if len(m.upnpOptions) > 0 {
+					if m.upnpIndex < len(m.upnpOptions)-1 {
+						m.upnpIndex++
+					}
+					m.setUpnpFromIndex()
+					return m, cmd
 				}
 			}
+		}
+		switch keyMsg.String() {
+		case "tab":
+			order := m.loginFocusOrder()
+			if len(order) == 0 {
+				return m, cmd
+			}
+			m.loginFocus = (m.loginFocus + 1) % len(order)
+			m.syncLoginFocus()
 			return m, cmd
 		case "r":
 			m.loginRawIP = !m.loginRawIP
 			return m, cmd
+		case "u":
+			m.loginUseUPnP = !m.loginUseUPnP
+			if m.loginUseUPnP {
+				m.upnpOptions, m.upnpLoadErr = loadUpnpOptions()
+				current := strings.TrimSpace(m.loginUpnpInput.Value())
+				if current == "" {
+					m.setUpnpFromIndex()
+				} else {
+					for i, opt := range m.upnpOptions {
+						if opt.name == current {
+							m.upnpIndex = i
+							break
+						}
+					}
+				}
+			}
+			m.syncLoginFocus()
+			return m, cmd
 		case "enter":
-			if m.loginFocus == 3 {
+			switch m.currentLoginField() {
+			case loginFieldUPnPFetch:
+				return m, m.fetchUpnpIP()
+			case loginFieldRun:
 				return m, m.runLogin()
 			}
 		}
 	}
 
-	if m.loginFocus < len(m.loginInputs) {
+	switch m.currentLoginField() {
+	case loginFieldUser:
 		var inputCmd tea.Cmd
-		m.loginInputs[m.loginFocus], inputCmd = m.loginInputs[m.loginFocus].Update(msg)
+		m.loginInputs[0], inputCmd = m.loginInputs[0].Update(msg)
 		return m, tea.Batch(cmd, inputCmd)
+	case loginFieldPass:
+		var inputCmd tea.Cmd
+		m.loginInputs[1], inputCmd = m.loginInputs[1].Update(msg)
+		return m, tea.Batch(cmd, inputCmd)
+	case loginFieldIP:
+		var inputCmd tea.Cmd
+		m.loginInputs[2], inputCmd = m.loginInputs[2].Update(msg)
+		return m, tea.Batch(cmd, inputCmd)
+	case loginFieldUPnP:
+		var inputCmd tea.Cmd
+		m.loginUpnpInput, inputCmd = m.loginUpnpInput.Update(msg)
+		return m, tea.Batch(cmd, inputCmd)
+	case loginFieldUPnPFetch:
+		return m, cmd
+	default:
 	}
 
 	return m, cmd
@@ -650,7 +838,7 @@ func (m tuiModel) updateNetwork(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 				}
 				return m, cmd
 			case "tab":
-				if m.netAction == netActionPing || m.netAction == netActionTCP || m.netAction == netActionHTTP {
+				if m.netAction == netActionHTTP {
 					m.netInputOn = true
 					m.focusNetInput()
 					return m, cmd
@@ -666,10 +854,6 @@ func (m tuiModel) updateNetwork(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 		if input != nil {
 			updated, inputCmd := input.Update(msg)
 			switch m.netAction {
-			case netActionPing:
-				m.netPingInput = updated
-			case netActionTCP:
-				m.netTCPInput = updated
 			case netActionHTTP:
 				m.netHTTPInput = updated
 			}
@@ -688,17 +872,11 @@ func (m *tuiModel) focusNetInput() {
 }
 
 func (m *tuiModel) blurNetInputs() {
-	m.netPingInput.Blur()
-	m.netTCPInput.Blur()
 	m.netHTTPInput.Blur()
 }
 
 func (m *tuiModel) activeNetInput() *textinput.Model {
 	switch m.netAction {
-	case netActionPing:
-		return &m.netPingInput
-	case netActionTCP:
-		return &m.netTCPInput
 	case netActionHTTP:
 		return &m.netHTTPInput
 	default:
@@ -710,8 +888,13 @@ func (m *tuiModel) runLogin() tea.Cmd {
 	username := strings.TrimSpace(m.loginInputs[0].Value())
 	password := m.loginInputs[1].Value()
 	ip := strings.TrimSpace(m.loginInputs[2].Value())
-	if username == "" || password == "" || ip == "" {
-		m.lastResult = "Login requires username, password, and IP"
+	if username == "" || password == "" {
+		m.lastResult = "Login requires username and password"
+		m.appendStatus(m.lastResult)
+		return nil
+	}
+	if !m.loginUseUPnP && ip == "" {
+		m.lastResult = "Login requires IP"
 		m.appendStatus(m.lastResult)
 		return nil
 	}
@@ -723,11 +906,42 @@ func (m *tuiModel) runLogin() tea.Cmd {
 		if _, err := network.HttpConnect("https://w.seu.edu.cn:802"); err != nil {
 			return loginResultMsg{success: false, message: "无法连接登录服务器，可能不在东南大学校园网。"}
 		}
+		if m.loginUseUPnP {
+			iface := strings.TrimSpace(m.loginUpnpInput.Value())
+			if iface == "" {
+				return loginResultMsg{success: false, message: "UPnP 接口不能为空"}
+			}
+			externalIP, err := seulogin.GetExternalIP(iface)
+			if err != nil {
+				return loginResultMsg{success: false, message: fmt.Sprintf("UPnP 获取 IP 失败: %v", err)}
+			}
+			ip = externalIP
+		}
 		success, message := seulogin.LoginToSeulogin(username, password, ip, m.loginRawIP)
 		if !success {
 			message = friendlyLoginError(message)
 		}
 		return loginResultMsg{success: success, message: message}
+	})
+}
+
+func (m *tuiModel) fetchUpnpIP() tea.Cmd {
+	if !m.loginUseUPnP {
+		m.lastResult = "UPnP is disabled"
+		m.appendStatus(m.lastResult)
+		return nil
+	}
+	iface := strings.TrimSpace(m.loginUpnpInput.Value())
+	if iface == "" {
+		m.lastResult = "UPnP interface is empty"
+		m.appendStatus(m.lastResult)
+		return nil
+	}
+	m.lastResult = "Fetching UPnP IP..."
+	m.appendStatus(m.lastResult)
+	return safeCmd("upnp-fetch", func() tea.Msg {
+		ip, err := seulogin.GetExternalIP(iface)
+		return upnpResultMsg{ip: ip, err: err}
 	})
 }
 
@@ -798,30 +1012,6 @@ func (m *tuiModel) runNetworkAction() tea.Cmd {
 		return safeCmd("network-seulan", func() tea.Msg {
 			err := network.CheckSeuLanConnection()
 			return networkResultMsg{action: "SEU LAN", err: err, result: "SEU LAN reachable"}
-		})
-	case netActionPing:
-		host := strings.TrimSpace(m.netPingInput.Value())
-		if host == "" {
-			m.lastResult = "Ping requires host"
-			m.appendStatus(m.lastResult)
-			return nil
-		}
-		m.appendStatus(fmt.Sprintf("Ping %s", host))
-		return safeCmd("network-ping", func() tea.Msg {
-			result, err := network.Ping(host)
-			return networkResultMsg{action: "Ping", err: err, result: result}
-		})
-	case netActionTCP:
-		host := strings.TrimSpace(m.netTCPInput.Value())
-		if host == "" {
-			m.lastResult = "TCP requires host:port"
-			m.appendStatus(m.lastResult)
-			return nil
-		}
-		m.appendStatus(fmt.Sprintf("TCP %s", host))
-		return safeCmd("network-tcp", func() tea.Msg {
-			result, err := network.TCPPing(host)
-			return networkResultMsg{action: "TCP", err: err, result: result}
 		})
 	case netActionHTTP:
 		url := strings.TrimSpace(m.netHTTPInput.Value())

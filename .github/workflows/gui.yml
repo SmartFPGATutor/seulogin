@@ -1,10 +1,17 @@
 name: gui-build
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload GUI assets to"
+        required: true
+        type: string
+
+permissions:
+  contents: write
 
 jobs:
   build-gui:
@@ -42,7 +49,7 @@ jobs:
           CGO_ENABLED: 1
         run: |
           mkdir dist
-          go build -o dist\\seulogin_gui.exe .\\app\\gui
+          go build -o dist\\seulogin_gui-windows.exe .\\app\\gui
         shell: pwsh
       - name: Build GUI (Unix)
         if: matrix.os != 'windows-latest'
@@ -50,9 +57,20 @@ jobs:
           CGO_ENABLED: 1
         run: |
           mkdir -p dist
-          go build -o dist/seulogin_gui ./app/gui
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            name=seulogin_gui-linux
+          else
+            name=seulogin_gui-darwin
+          fi
+          go build -o "dist/${name}" ./app/gui
       - name: Upload GUI artifact
         uses: actions/upload-artifact@v4
         with:
           name: seulogin_gui-${{ matrix.os }}
           path: dist/
+      - name: Upload GUI assets to release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ github.event.release.tag_name || inputs.tag }}
+          files: dist/*

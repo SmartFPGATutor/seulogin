@@ -53,24 +53,12 @@ builds:
           - -X main.version={{ .Version }}
           - -X main.buildTime={{ .Date }}
           - -X main.gitCommit={{ .FullCommit }}
-  - id: seulogin_gui
-    main: ./app/gui
-    binary: seulogin_gui
-    env:
-      - CGO_ENABLED=1
-    ldflags:
-      - -s -w
-    goos:
-      - linux
-    goarch:
-      - amd64
 
 
 archives:
   -
     builds:
       - seulogin
-      - seulogin_gui
     format_overrides:
       - goos: windows
         format: zip

@@ -16,6 +16,8 @@ var (
 	ip         string
 	rawIP      bool
 	configFile string
+	useUPnP    bool
+	upnpIface  string
 )
 
 func newLoginCmd() *cobra.Command {
@@ -38,9 +40,28 @@ func newLoginCmd() *cobra.Command {
 				}
 				return login.LoginWithConfig(config)
 			} else {
-				if username == "" || password == "" || ip == "" {
-					logger.Error("username, password and ip are required")
-					return fmt.Errorf("username, password and ip are required")
+				if username == "" || password == "" {
+					logger.Error("username and password are required")
+					return fmt.Errorf("username and password are required")
+				}
+
+				useUpnpLogin := useUPnP || upnpIface != ""
+				if useUpnpLogin {
+					if upnpIface == "" {
+						logger.Error("UPnP interface is required")
+						return fmt.Errorf("upnp interface is required")
+					}
+					externalIP, err := seulogin.GetExternalIP(upnpIface)
+					if err != nil {
+						logger.Error("Failed to get UPnP IP", zap.String("interface", upnpIface), zap.Error(err))
+						return fmt.Errorf("get upnp ip failed: %w", err)
+					}
+					ip = externalIP
+				}
+
+				if ip == "" {
+					logger.Error("ip is required")
+					return fmt.Errorf("ip is required")
 				}
 				success, msg := seulogin.LoginToSeulogin(username, password, ip, rawIP)
 				if !success {
@@ -56,6 +77,8 @@ func newLoginCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&password, "password", "p", "", "password")
 	cmd.Flags().StringVarP(&ip, "ip", "i", "", "ip")
 	cmd.Flags().BoolVarP(&rawIP, "raw-ip", "r", false, "use raw ip of login server, not use domain name of login server")
+	cmd.Flags().BoolVarP(&useUPnP, "upnp", "U", false, "use UPnP to resolve campus IP (requires interface)")
+	cmd.Flags().StringVar(&upnpIface, "upnp-iface", "", "UPnP interface name (e.g. eth0, wlan0)")
 	cmd.Flags().StringVarP(&configFile, "config", "c", "", "config file")
 	return cmd
 }

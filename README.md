@@ -172,15 +172,17 @@ Flags:
   -i, --ip string         ip
   -p, --password string   password
   -r, --raw-ip            use raw ip of login server, not use domain name of login server
+  -U, --upnp              use UPnP to resolve campus IP (requires interface)
+      --upnp-iface string UPnP interface name (e.g. eth0, wlan0)
   -u, --username string   username
 
 Global Flags:
   -v, --verbose   Enable verbose output
 ```
 
-使用 `-c` 指定配置文件登录网络。也可以直接使用 `-u` `-p` `-i` `-r` 参数直接登录。
+使用 `-c` 指定配置文件登录网络。也可以直接使用 `-u` `-p` `-i` `-r` 参数直接登录，或通过 `--upnp --upnp-iface` 使用 UPnP 获取 IP。
 
-Login to the network using `-c` to specify the configuration file. You can also use `-u` `-p` `-i` `-r` parameters directly to login.
+Login to the network using `-c` to specify the configuration file. You can also use `-u` `-p` `-i` `-r` parameters directly to login, or resolve the IP via UPnP using `--upnp --upnp-iface`.
 
 
 ### 设置定时任务 / Set up cron jobs
@@ -243,13 +245,7 @@ Test if the current network connection is normal.
 - 默认(空命令): 测试连接到因特网的连接 / Default(empty command): test the connection to the Internet
 - `login`: 测试到登录服务器的连接 / Test the connection to the login server
 - `seulan`: 测试到东南大学校内局域网连接 / Test the connection to the Southeast University campus network
-- `ping [ip/hostname]`: 测试到指定主机的连接 (使用 ICMP ping) / Test the connection to the specified host using ICMP ping
-- `tcp [ip:port]`: 测试到指定主机的 TCP 连接 / Test the TCP connection to the specified host
 - `http [url]`: 测试到指定 URL 的 HTTP 连接 / Test the HTTP connection to the specified URL
-
-> 注意, `ping` 在 macOS 上没有实现，请使用系统自带的 `ping` 命令。
-
-> Note: `ping` is not implemented on macOS, please use the system's `ping` command.
 
 
 ## 配置文件

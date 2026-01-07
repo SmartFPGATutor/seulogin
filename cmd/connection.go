@@ -24,48 +24,10 @@ func newConnectionCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(newPingCmd())
-	cmd.AddCommand(newTcpPingCmd())
 	cmd.AddCommand(newHttpConnectCmd())
 	cmd.AddCommand(newCheckLoginServerCmd())
 	cmd.AddCommand(newCheckSeuLanCmd())
 
-	return cmd
-}
-
-func newPingCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:          "ping",
-		Short:        "Ping the host",
-		Args:         cobra.ExactArgs(1),
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			pingResult, err := network.Ping(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(pingResult)
-			return nil
-		},
-	}
-	return cmd
-}
-
-func newTcpPingCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:          "tcp",
-		Short:        "TCP ping the host",
-		Args:         cobra.ExactArgs(1),
-		SilenceUsage: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			pingResult, err := network.TCPPing(args[0])
-			if err != nil {
-				return err
-			}
-			fmt.Println(pingResult)
-			return nil
-		},
-	}
 	return cmd
 }
 

@@ -95,12 +95,68 @@ func buildLoginTab(state *guiState) fyne.CanvasObject {
 	ip := widget.NewEntry()
 	ip.SetPlaceHolder("10.0.0.1")
 
+	upnpInterface := widget.NewEntry()
+	upnpInterface.SetPlaceHolder("eth0 / wlan0")
+	upnpInterface.Disable()
+
+	ifaceSelect := widget.NewSelect([]string{}, func(choice string) {
+		name := parseInterfaceChoice(choice)
+		if name != "" {
+			upnpInterface.SetText(name)
+		}
+	})
+	ifaceSelect.PlaceHolder = "选择接口"
+	ifaceMap := map[string]string{}
+	refreshIfaces := func() {
+		ifaces, err := network.ListUsableInterfaces()
+		if err != nil {
+			state.appendStatus(fmt.Sprintf("UPnP interface load failed: %v", err))
+			return
+		}
+		options := make([]string, 0, len(ifaces))
+		ifaceMap = map[string]string{}
+		for _, iface := range ifaces {
+			label := fmt.Sprintf("%s (%s)", iface.Name, iface.IP)
+			options = append(options, label)
+			ifaceMap[label] = iface.Name
+		}
+		ifaceSelect.Options = options
+		ifaceSelect.Refresh()
+		if len(options) > 0 && upnpInterface.Text == "" {
+			ifaceSelect.SetSelected(options[0])
+			upnpInterface.SetText(ifaceMap[options[0]])
+		}
+	}
+
 	rawIP := widget.NewCheck("使用登录节点 IP (raw-ip)", nil)
+	upnpCheck := widget.NewCheck("使用 UPnP 获取 IP", nil)
+	upnpFetchBtn := widget.NewButton("获取 IP", func() {
+		iface := strings.TrimSpace(upnpInterface.Text)
+		if iface == "" {
+			state.setLoginStatus("请输入 UPnP 接口")
+			state.appendStatus("Login: missing UPnP interface")
+			return
+		}
+		state.setLoginStatus("正在获取 UPnP IP...")
+		state.appendStatus("UPnP fetch started")
+		go func() {
+			externalIP, err := seulogin.GetExternalIP(iface)
+			if err != nil {
+				state.setLoginStatus(fmt.Sprintf("UPnP 获取 IP 失败: %v", err))
+				state.appendStatus("UPnP fetch failed")
+				return
+			}
+			ip.SetText(externalIP)
+			state.setLoginStatus(fmt.Sprintf("UPnP IP: %s", externalIP))
+			state.appendStatus("UPnP fetch success")
+		}()
+	})
 
 	form := widget.NewForm(
 		widget.NewFormItem("用户名", username),
 		widget.NewFormItem("密码", password),
 		widget.NewFormItem("IP", ip),
+		widget.NewFormItem("UPnP 接口", upnpInterface),
 	)
 	form.SubmitText = "登录"
 	form.CancelText = "清空"
@@ -108,9 +164,21 @@ func buildLoginTab(state *guiState) fyne.CanvasObject {
 		user := strings.TrimSpace(username.Text)
 		pass := password.Text
 		addr := strings.TrimSpace(ip.Text)
-		if user == "" || pass == "" || addr == "" {
-			state.setLoginStatus("请输入用户名、密码与 IP")
-			state.appendStatus("Login: missing username/password/IP")
+		upnpIface := strings.TrimSpace(upnpInterface.Text)
+		if user == "" || pass == "" {
+			state.setLoginStatus("请输入用户名、密码")
+			state.appendStatus("Login: missing username/password")
+			return
+		}
+		if upnpCheck.Checked {
+			if upnpIface == "" {
+				state.setLoginStatus("请输入 UPnP 接口")
+				state.appendStatus("Login: missing UPnP interface")
+				return
+			}
+		} else if addr == "" {
+			state.setLoginStatus("请输入 IP")
+			state.appendStatus("Login: missing IP")
 			return
 		}
 
@@ -122,6 +190,15 @@ func buildLoginTab(state *guiState) fyne.CanvasObject {
 				state.setLoginStatus("无法连接登录服务器，可能不在东南大学校园网。")
 				state.appendStatus("Login blocked: not reachable")
 				return
+			}
+			if upnpCheck.Checked {
+				externalIP, err := seulogin.GetExternalIP(upnpIface)
+				if err != nil {
+					state.setLoginStatus(fmt.Sprintf("UPnP 获取 IP 失败: %v", err))
+					state.appendStatus("Login failed: upnp ip")
+					return
+				}
+				addr = externalIP
 			}
 			success, msg := seulogin.LoginToSeulogin(user, pass, addr, rawIP.Checked)
 			if success {
@@ -138,18 +215,47 @@ func buildLoginTab(state *guiState) fyne.CanvasObject {
 		password.SetText("")
 		ip.SetText("")
 		rawIP.SetChecked(false)
+		upnpCheck.SetChecked(false)
+		upnpInterface.SetText("")
 		state.setLoginStatus("")
 	}
 
 	statusCard := widget.NewCard("状态", "", state.loginStatus)
-	return container.NewVBox(form, rawIP, statusCard, layout.NewSpacer())
+	refreshBtn := widget.NewButton("刷新接口", refreshIfaces)
+	ifaceRow := container.NewBorder(nil, nil, nil, refreshBtn, ifaceSelect)
+	upnpActionRow := container.NewBorder(nil, nil, nil, upnpFetchBtn, upnpCheck)
+	refreshIfaces()
+	ifaceSelect.Disable()
+	upnpFetchBtn.Disable()
+
+	upnpCheck.OnChanged = func(checked bool) {
+		if checked {
+			ip.Disable()
+			upnpInterface.Enable()
+			ifaceSelect.Enable()
+			upnpFetchBtn.Enable()
+			return
+		}
+		ip.Enable()
+		upnpInterface.Disable()
+		ifaceSelect.Disable()
+		upnpFetchBtn.Disable()
+	}
+
+	return container.NewVBox(form, ifaceRow, rawIP, upnpActionRow, statusCard, layout.NewSpacer())
+}
+
+func parseInterfaceChoice(choice string) string {
+	if choice == "" {
+		return ""
+	}
+	if idx := strings.Index(choice, " ("); idx > 0 {
+		return choice[:idx]
+	}
+	return choice
 }
 
 func buildNetworkTab(state *guiState) fyne.CanvasObject {
-	pingEntry := widget.NewEntry()
-	pingEntry.SetPlaceHolder("host")
-	tcpEntry := widget.NewEntry()
-	tcpEntry.SetPlaceHolder("host:port")
 	httpEntry := widget.NewEntry()
 	httpEntry.SetPlaceHolder("https://...")
 
@@ -169,33 +275,7 @@ func buildNetworkTab(state *guiState) fyne.CanvasObject {
 		})
 	})
 
-	pingBtn := widget.NewButton("Ping", func() {
-		host := strings.TrimSpace(pingEntry.Text)
-		if host == "" {
-			state.setNetworkStatus("请输入 Ping 目标")
-			state.appendStatus("Ping: missing host")
-			return
-		}
-		state.runNetworkAction("Ping", func() error {
-			_, err := network.Ping(host)
-			return err
-		})
-	})
-
-	tcpBtn := widget.NewButton("TCP", func() {
-		host := strings.TrimSpace(tcpEntry.Text)
-		if host == "" {
-			state.setNetworkStatus("请输入 host:port")
-			state.appendStatus("TCP: missing host")
-			return
-		}
-		state.runNetworkAction("TCP", func() error {
-			_, err := network.TCPPing(host)
-			return err
-		})
-	})
-
-	httpBtn := widget.NewButton("HTTP", func() {
+	httpBtn := widget.NewButton("HTTP (curl)", func() {
 		url := strings.TrimSpace(httpEntry.Text)
 		if url == "" {
 			state.setNetworkStatus("请输入 URL")
@@ -210,8 +290,6 @@ func buildNetworkTab(state *guiState) fyne.CanvasObject {
 
 	checkCard := widget.NewCard("基础检测", "", container.NewVBox(wanBtn, loginBtn, seuBtn))
 	customCard := widget.NewCard("自定义", "", container.NewVBox(
-		container.NewBorder(nil, nil, nil, pingBtn, pingEntry),
-		container.NewBorder(nil, nil, nil, tcpBtn, tcpEntry),
 		container.NewBorder(nil, nil, nil, httpBtn, httpEntry),
 	))
 	statusCard := widget.NewCard("状态", "", state.networkStatus)
