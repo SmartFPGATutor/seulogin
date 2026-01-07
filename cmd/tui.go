@@ -108,6 +108,7 @@ type tuiModel struct {
 	cronExpr       string
 	cronPath       string
 	cronRunning    bool
+	menuFocus      bool
 	loginInputs    []textinput.Model
 	loginFocus     int
 	loginRawIP     bool
@@ -302,6 +303,7 @@ func newTuiModel(menu list.Model) tuiModel {
 	return tuiModel{
 		menu:           menu,
 		active:         menuLogin,
+		menuFocus:      false,
 		loginInputs:    loginInputs,
 		loginFocus:     0,
 		loginRawIP:     false,
@@ -337,6 +339,11 @@ func (m tuiModel) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 		case "ctrl+c", "q":
 			m.stopCron()
 			return m, tea.Quit
+		case "esc":
+			if !(m.active == menuNetwork && m.netInputOn) {
+				m.menuFocus = !m.menuFocus
+				return m, nil
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -391,21 +398,24 @@ func (m tuiModel) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 		return m, nil
 	}
 
-	m.menu, cmd = m.menu.Update(msg)
-
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.String() == "enter" {
-			if item, ok := m.menu.SelectedItem().(menuItem); ok {
-				switch item.id {
-				case menuQuit:
-					m.stopCron()
-					return m, tea.Quit
-				default:
-					m.active = item.id
+	if m.menuFocus {
+		m.menu, cmd = m.menu.Update(msg)
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			if msg.String() == "enter" {
+				if item, ok := m.menu.SelectedItem().(menuItem); ok {
+					switch item.id {
+					case menuQuit:
+						m.stopCron()
+						return m, tea.Quit
+					default:
+						m.active = item.id
+						m.menuFocus = false
+					}
 				}
 			}
 		}
+		return m, cmd
 	}
 
 	switch m.active {
@@ -495,6 +505,9 @@ func (m tuiModel) renderBody() string {
 
 func (m tuiModel) renderMenuPanel() string {
 	menuTitle := titleStyle.Render("Menu")
+	if m.menuFocus {
+		menuTitle = accentStyle.Render("Menu")
+	}
 	art := m.menuArt()
 	artHeight := lipgloss.Height(art)
 	menuHeight := max(1, m.bodyHeight-4-artHeight-2)
@@ -516,11 +529,14 @@ func (m tuiModel) menuArt() string {
 
 func (m tuiModel) renderFooter() string {
 	hint := keyStyle.Render("TAB") + " Next  " + keyStyle.Render("ENTER") + " Action  " + keyStyle.Render("Q") + " Quit"
+	if m.menuFocus {
+		hint = keyStyle.Render("↑/↓") + " Select  " + keyStyle.Render("ENTER") + " Open  " + keyStyle.Render("ESC") + " Back"
+	}
 	if m.active == menuNetwork && m.netInputOn {
 		hint = keyStyle.Render("TAB") + " Back  " + keyStyle.Render("ESC") + " Exit  " + keyStyle.Render("ENTER") + " Run  " + keyStyle.Render("Q") + " Quit"
 	}
 	if m.active == menuLogin {
-		hint = keyStyle.Render("TAB") + " Next  " + keyStyle.Render("R") + " Raw  " + keyStyle.Render("U") + " UPnP  " + keyStyle.Render("F") + " Fetch  " + keyStyle.Render("ENTER") + " Action  " + keyStyle.Render("Q") + " Quit"
+		hint = keyStyle.Render("TAB") + " Next  " + keyStyle.Render("1-9") + " Select  " + keyStyle.Render("R") + " Raw  " + keyStyle.Render("U") + " UPnP  " + keyStyle.Render("F") + " Fetch  " + keyStyle.Render("ENTER") + " Action  " + keyStyle.Render("ESC") + " Menu"
 	}
 	right := "Ready"
 	if strings.TrimSpace(m.lastResult) != "" {
@@ -578,14 +594,19 @@ func (m tuiModel) renderLogin() string {
 		fmt.Sprintf("%s  %s", m.renderToggle("UPnP", m.loginUseUPnP), m.renderToggle("Raw", m.loginRawIP)),
 	}
 	if m.loginUseUPnP {
-		rows = append(rows, m.renderInput(m.loginUpnpInput, m.currentLoginField() == loginFieldUPnP), dimStyle.Render("UPnP 开启时忽略 IP 输入"))
+		selected := strings.TrimSpace(m.loginUpnpInput.Value())
+		if selected == "" {
+			selected = "请选择 (1-9)"
+		}
+		rows = append(rows, m.renderInlineField("UPnP 接口", selected, m.currentLoginField() == loginFieldUPnP), dimStyle.Render("UPnP 开启时忽略 IP 输入"))
 		if m.upnpLoadErr != "" {
 			rows = append(rows, dimStyle.Render("UPnP 接口获取失败: "+m.upnpLoadErr))
 		} else if len(m.upnpOptions) == 0 {
 			rows = append(rows, dimStyle.Render("未找到可用网卡"))
 		} else {
-			rows = append(rows, sectionStyle.Render("Interfaces (↑/↓)"))
+			rows = append(rows, sectionStyle.Render("Interfaces (1-9)"))
 			rows = append(rows, m.renderUpnpOptions()...)
+			rows = append(rows, dimStyle.Render("按数字选择接口"))
 		}
 		if resolved := strings.TrimSpace(m.loginInputs[2].Value()); resolved != "" {
 			rows = append(rows, dimStyle.Render("Resolved IP: "+resolved))
@@ -746,6 +767,14 @@ func (m tuiModel) renderInput(input textinput.Model, focused bool) string {
 	return style.Width(m.inputWidth()).Render(input.View())
 }
 
+func (m tuiModel) renderInlineField(label string, value string, focused bool) string {
+	style := inputStyle
+	if focused {
+		style = inputActiveStyle
+	}
+	return style.Width(m.inputWidth()).Render(fmt.Sprintf("%s: %s", label, value))
+}
+
 func (m tuiModel) renderLoginInput(index int) string {
 	var focused bool
 	switch index {
@@ -765,31 +794,18 @@ func (m tuiModel) renderUpnpOptions() []string {
 	if len(m.upnpOptions) == 0 {
 		return nil
 	}
-	const maxItems = 4
-	window := maxItems
-	if len(m.upnpOptions) < window {
-		window = len(m.upnpOptions)
-	}
-	start := m.upnpIndex - window/2
-	if start < 0 {
-		start = 0
-	}
-	if start+window > len(m.upnpOptions) {
-		start = len(m.upnpOptions) - window
-	}
-	end := start + window
-
-	rows := make([]string, 0, window+1)
-	for i := start; i < end; i++ {
-		opt := m.upnpOptions[i]
-		prefix := "  "
+	rows := make([]string, 0, len(m.upnpOptions)+1)
+	for i, opt := range m.upnpOptions {
+		marker := "[ ]"
+		line := fmt.Sprintf("%s %d) %s (%s)", marker, i+1, opt.name, opt.ip)
 		if i == m.upnpIndex {
-			prefix = "> "
+			line = fmt.Sprintf("[x] %d) %s (%s)", i+1, opt.name, opt.ip)
+			line = accentStyle.Render(line)
 		}
-		rows = append(rows, fmt.Sprintf("%s%s (%s)", prefix, opt.name, opt.ip))
+		rows = append(rows, line)
 	}
-	if len(m.upnpOptions) > window {
-		rows = append(rows, dimStyle.Render(fmt.Sprintf("... %d more", len(m.upnpOptions)-window)))
+	if len(m.upnpOptions) > 9 {
+		rows = append(rows, dimStyle.Render("仅支持 1-9 选择"))
 	}
 	return rows
 }
@@ -889,27 +905,18 @@ func (m tuiModel) currentLoginField() loginField {
 
 func (m tuiModel) updateLogin(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if m.loginUseUPnP && (m.currentLoginField() == loginFieldUPnP || m.currentLoginField() == loginFieldUPnPFetch) {
-			switch keyMsg.String() {
-			case "up", "k":
-				if len(m.upnpOptions) > 0 {
-					if m.upnpIndex > 0 {
-						m.upnpIndex--
-					}
+		switch keyMsg.String() {
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if m.loginUseUPnP && m.currentLoginField() == loginFieldUPnP {
+				idx := int(keyMsg.String()[0] - '1')
+				if idx >= 0 && idx < len(m.upnpOptions) {
+					m.upnpIndex = idx
 					m.setUpnpFromIndex()
-					return m, cmd
-				}
-			case "down", "j":
-				if len(m.upnpOptions) > 0 {
-					if m.upnpIndex < len(m.upnpOptions)-1 {
-						m.upnpIndex++
-					}
-					m.setUpnpFromIndex()
+					m.lastResult = fmt.Sprintf("UPnP interface: %s", m.upnpOptions[idx].name)
+					m.appendStatus(m.lastResult)
 					return m, cmd
 				}
 			}
-		}
-		switch keyMsg.String() {
 		case "tab":
 			order := m.loginFocusOrder()
 			if len(order) == 0 {
@@ -968,9 +975,7 @@ func (m tuiModel) updateLogin(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 		m.loginInputs[2], inputCmd = m.loginInputs[2].Update(msg)
 		return m, tea.Batch(cmd, inputCmd)
 	case loginFieldUPnP:
-		var inputCmd tea.Cmd
-		m.loginUpnpInput, inputCmd = m.loginUpnpInput.Update(msg)
-		return m, tea.Batch(cmd, inputCmd)
+		return m, cmd
 	case loginFieldUPnPFetch:
 		return m, cmd
 	default:

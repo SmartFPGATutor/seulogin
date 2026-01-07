@@ -39,6 +39,7 @@ func ListUsableInterfaces() ([]InterfaceInfo, error) {
 	}
 
 	var results []InterfaceInfo
+	var fallback []InterfaceInfo
 	for _, iface := range ifaces {
 		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
 			continue
@@ -51,7 +52,16 @@ func ListUsableInterfaces() ([]InterfaceInfo, error) {
 		if ip == "" {
 			continue
 		}
-		results = append(results, InterfaceInfo{Name: iface.Name, IP: ip})
+		info := InterfaceInfo{Name: iface.Name, IP: ip}
+		if iface.Flags&net.FlagBroadcast != 0 {
+			results = append(results, info)
+		} else {
+			fallback = append(fallback, info)
+		}
+	}
+
+	if len(results) == 0 {
+		results = fallback
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -76,11 +86,19 @@ func firstIPv4(iface net.Interface) string {
 		return ""
 	}
 	for _, addr := range addrs {
-		ipnet, ok := addr.(*net.IPNet)
-		if !ok || ipnet.IP == nil {
+		var ip net.IP
+		switch v := addr.(type) {
+		case *net.IPNet:
+			ip = v.IP
+		case *net.IPAddr:
+			ip = v.IP
+		default:
 			continue
 		}
-		ip := ipnet.IP.To4()
+		if ip == nil {
+			continue
+		}
+		ip = ip.To4()
 		if ip == nil || ip.IsLoopback() {
 			continue
 		}
