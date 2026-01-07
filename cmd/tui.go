@@ -124,50 +124,105 @@ type tuiModel struct {
 }
 
 var (
+	colorBg        = lipgloss.Color("#1E1E2E")
+	colorSurface   = lipgloss.Color("#24273A")
+	colorSurfaceHi = lipgloss.Color("#313244")
+	colorText      = lipgloss.Color("#CDD6F4")
+	colorMuted     = lipgloss.Color("#6C7086")
+	colorAccent    = lipgloss.Color("#005E32")
+	colorAccentHi  = lipgloss.Color("#1F7A4D")
+	colorBorder    = lipgloss.Color("#3B3F56")
+	colorOn        = lipgloss.Color("#94E2D5")
+	colorOff       = lipgloss.Color("#F38BA8")
+
 	headerStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#F1F8E9")).
-			Background(lipgloss.Color("#2E7D32")).
+			Foreground(colorText).
+			Background(colorAccent).
 			Padding(0, 1)
 
 	panelStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7CB342")).
+			BorderForeground(colorBorder).
+			Background(colorSurface).
+			Foreground(colorText).
 			Padding(1, 2)
+
+	menuPanelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorBorder).
+			Background(colorSurface).
+			Foreground(colorText).
+			Padding(0, 1)
 
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#DCE775"))
+			Foreground(colorText)
 
 	sectionStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#AED581"))
+			Foreground(colorAccentHi)
 
 	dimStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#B0BEC5"))
+			Foreground(colorMuted)
 
 	accentStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(lipgloss.Color("#F0F4C3"))
+			Foreground(colorAccentHi)
 
 	buttonStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("#7CB342")).
-			Padding(0, 1)
+			BorderForeground(colorBorder).
+			Background(colorSurfaceHi).
+			Foreground(colorText).
+			Padding(0, 2)
 
 	buttonActiveStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("#DCE775")).
-				Background(lipgloss.Color("#558B2F")).
-				Foreground(lipgloss.Color("#F1F8E9")).
+				BorderForeground(colorAccentHi).
+				Background(colorAccent).
+				Foreground(colorText).
+				Padding(0, 2)
+
+	buttonDisabledStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(colorBorder).
+				Background(colorSurface).
+				Foreground(colorMuted).
+				Padding(0, 2)
+
+	inputStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorBorder).
+			Background(colorSurfaceHi).
+			Foreground(colorText).
+			Padding(0, 1)
+
+	inputActiveStyle = lipgloss.NewStyle().
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(colorAccentHi).
+				Background(colorSurfaceHi).
+				Foreground(colorText).
 				Padding(0, 1)
+
+	statusBarStyle = lipgloss.NewStyle().
+			Background(colorSurfaceHi).
+			Foreground(colorText)
+
+	keyStyle = lipgloss.NewStyle().
+			Background(colorAccent).
+			Foreground(colorText).
+			Padding(0, 1)
+
+	noticeStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(colorBorder).
+			Background(colorSurfaceHi).
+			Padding(0, 1)
 )
 
-const asciiSEU = `  ____  _____ _   _
- / ___|| ____| | | |
- \___ \|  _| | | | |
-  ___) | |___| |_| |
- |____/|_____|\___/`
+const asciiSEU = `SEU
+Login`
 
 func newTuiCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -176,6 +231,9 @@ func newTuiCmd() *cobra.Command {
 		Args:         cobra.NoArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := setupTuiLogger(); err != nil {
+				return err
+			}
 			items := []list.Item{
 				menuItem{id: menuLogin, title: "Login", desc: "账号登录"},
 				menuItem{id: menuCron, title: "Cron", desc: "定时任务"},
@@ -185,10 +243,10 @@ func newTuiCmd() *cobra.Command {
 			}
 
 			delegate := list.NewDefaultDelegate()
-			delegate.Styles.NormalTitle = dimStyle
+			delegate.Styles.NormalTitle = lipgloss.NewStyle().Foreground(colorText)
 			delegate.Styles.NormalDesc = dimStyle
-			delegate.Styles.SelectedTitle = accentStyle
-			delegate.Styles.SelectedDesc = accentStyle
+			delegate.Styles.SelectedTitle = accentStyle.Copy().Bold(true)
+			delegate.Styles.SelectedDesc = lipgloss.NewStyle().Foreground(colorOn)
 			delegate.Styles.DimmedTitle = dimStyle
 			delegate.Styles.DimmedDesc = dimStyle
 
@@ -386,12 +444,16 @@ func (m *tuiModel) reflow() {
 		return
 	}
 
-	minLeft := 18
+	minLeft := 14
+	maxLeft := 26
 	minRight := 24
 
-	left := int(float64(m.width) * 0.3)
+	left := int(float64(m.width) * 0.22)
 	if left < minLeft {
 		left = minLeft
+	}
+	if left > maxLeft {
+		left = maxLeft
 	}
 	if m.width < minLeft+minRight+1 {
 		left = m.width/2 - 1
@@ -426,7 +488,7 @@ func (m *tuiModel) reflow() {
 }
 
 func (m tuiModel) renderBody() string {
-	left := panelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.renderMenuPanel())
+	left := menuPanelStyle.Width(m.leftWidth).Height(m.bodyHeight).Render(m.renderMenuPanel())
 	right := panelStyle.Width(m.rightWidth).Height(m.bodyHeight).Render(m.renderRight())
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
@@ -439,13 +501,13 @@ func (m tuiModel) renderMenuPanel() string {
 	m.menu.SetSize(max(1, m.leftWidth-4), menuHeight)
 
 	if art == "" {
-		return lipgloss.JoinVertical(lipgloss.Left, menuTitle, "", m.menu.View())
+		return lipgloss.JoinVertical(lipgloss.Left, menuTitle, m.menu.View())
 	}
-	return lipgloss.JoinVertical(lipgloss.Left, menuTitle, art, "", m.menu.View())
+	return lipgloss.JoinVertical(lipgloss.Left, menuTitle, art, m.menu.View())
 }
 
 func (m tuiModel) menuArt() string {
-	if m.bodyHeight < 12 {
+	if m.bodyHeight < 16 || m.leftWidth < 24 {
 		return accentStyle.Render("SEU")
 	}
 	name := dimStyle.Render("东南大学 · SOUTHEAST UNIVERSITY")
@@ -453,24 +515,35 @@ func (m tuiModel) menuArt() string {
 }
 
 func (m tuiModel) renderFooter() string {
-	hint := "Tab: next field · Enter: action · Q: quit"
+	hint := keyStyle.Render("TAB") + " Next  " + keyStyle.Render("ENTER") + " Action  " + keyStyle.Render("Q") + " Quit"
 	if m.active == menuNetwork && m.netInputOn {
-		hint = "Tab/Esc: back · Enter: run · Q: quit"
+		hint = keyStyle.Render("TAB") + " Back  " + keyStyle.Render("ESC") + " Exit  " + keyStyle.Render("ENTER") + " Run  " + keyStyle.Render("Q") + " Quit"
 	}
 	if m.active == menuLogin {
-		hint = "Tab: next field · R: raw-ip · Enter: run · Q: quit"
+		hint = keyStyle.Render("TAB") + " Next  " + keyStyle.Render("R") + " Raw  " + keyStyle.Render("U") + " UPnP  " + keyStyle.Render("F") + " Fetch  " + keyStyle.Render("ENTER") + " Action  " + keyStyle.Render("Q") + " Quit"
 	}
-	return dimStyle.Width(m.width).Render(hint)
+	right := "Ready"
+	if strings.TrimSpace(m.lastResult) != "" {
+		right = m.lastResult
+	}
+	right = dimStyle.Render(right)
+
+	gap := m.width - lipgloss.Width(hint) - lipgloss.Width(right)
+	if gap < 1 {
+		return statusBarStyle.Width(m.width).Render(hint)
+	}
+	line := hint + strings.Repeat(" ", gap) + right
+	return statusBarStyle.Width(m.width).Render(line)
 }
 
 func (m tuiModel) renderRight() string {
 	switch m.active {
 	case menuLogin:
-		return m.renderLogin()
+		return m.renderRightWithNotifications(m.renderLogin())
 	case menuCron:
-		return m.renderCron()
+		return m.renderRightWithNotifications(m.renderCron())
 	case menuNetwork:
-		return m.renderNetwork()
+		return m.renderRightWithNotifications(m.renderNetwork())
 	case menuStatus:
 		return m.renderStatus()
 	default:
@@ -478,46 +551,59 @@ func (m tuiModel) renderRight() string {
 	}
 }
 
+func (m tuiModel) renderRightWithNotifications(content string) string {
+	notice := m.renderNotificationsBox()
+	if notice == "" {
+		return content
+	}
+	contentHeight := max(1, m.bodyHeight-4)
+	noticeHeight := lipgloss.Height(notice)
+	available := contentHeight - noticeHeight - 1
+	if available < 1 {
+		available = 1
+	}
+	content = truncateLines(content, available)
+	return lipgloss.JoinVertical(lipgloss.Left, content, "", notice)
+}
+
 func (m tuiModel) renderLogin() string {
 	rows := []string{
 		titleStyle.Render("Login · 东南大学校园网"),
+		m.renderLoginInput(0),
 		"",
-		m.loginInputs[0].View(),
-		m.loginInputs[1].View(),
-		m.loginInputs[2].View(),
+		m.renderLoginInput(1),
 		"",
-		m.renderToggle("UPnP IP", m.loginUseUPnP),
+		m.renderLoginInput(2),
+		"",
+		fmt.Sprintf("%s  %s", m.renderToggle("UPnP", m.loginUseUPnP), m.renderToggle("Raw", m.loginRawIP)),
 	}
 	if m.loginUseUPnP {
-		rows = append(rows, m.loginUpnpInput.View(), dimStyle.Render("UPnP 开启时忽略 IP 输入"))
+		rows = append(rows, m.renderInput(m.loginUpnpInput, m.currentLoginField() == loginFieldUPnP), dimStyle.Render("UPnP 开启时忽略 IP 输入"))
 		if m.upnpLoadErr != "" {
 			rows = append(rows, dimStyle.Render("UPnP 接口获取失败: "+m.upnpLoadErr))
 		} else if len(m.upnpOptions) == 0 {
 			rows = append(rows, dimStyle.Render("未找到可用网卡"))
 		} else {
-			rows = append(rows, sectionStyle.Render("Interfaces (↑/↓ 选择)"))
-			for i, opt := range m.upnpOptions {
-				prefix := "  "
-				if i == m.upnpIndex {
-					prefix = "> "
-				}
-				rows = append(rows, fmt.Sprintf("%s%s (%s)", prefix, opt.name, opt.ip))
-			}
+			rows = append(rows, sectionStyle.Render("Interfaces (↑/↓)"))
+			rows = append(rows, m.renderUpnpOptions()...)
 		}
-		rows = append(rows, "", m.renderButton("Fetch UPnP IP", m.currentLoginField() == loginFieldUPnPFetch))
 		if resolved := strings.TrimSpace(m.loginInputs[2].Value()); resolved != "" {
 			rows = append(rows, dimStyle.Render("Resolved IP: "+resolved))
 		}
 	}
-	rows = append(rows,
-		"",
-		m.renderToggle("Raw IP", m.loginRawIP),
-		"",
+	fetchButton := m.renderButton("Fetch UPnP IP", m.currentLoginField() == loginFieldUPnPFetch)
+	if !m.loginUseUPnP {
+		fetchButton = m.renderButtonDisabled("Fetch UPnP IP")
+	}
+	buttonRow := lipgloss.JoinHorizontal(lipgloss.Left,
+		fetchButton,
+		" ",
 		m.renderButton("Run login", m.currentLoginField() == loginFieldRun),
 	)
+	rows = append(rows, "", buttonRow)
 
 	if m.lastResult != "" {
-		rows = append(rows, "", sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
+		rows = append(rows, sectionStyle.Render("Last result"), dimStyle.Render(m.lastResult))
 	}
 	return strings.Join(rows, "\n")
 }
@@ -530,8 +616,7 @@ func (m tuiModel) renderCron() string {
 
 	rows := []string{
 		titleStyle.Render("Cron"),
-		"",
-		m.cronInput.View(),
+		m.renderInput(m.cronInput, m.cronFocus == 0),
 		"",
 		fmt.Sprintf("Status: %s", status),
 		"",
@@ -557,7 +642,7 @@ func (m tuiModel) renderNetwork() string {
 		m.renderNetAction(netActionSeuLan, "Check SEU LAN"),
 		"",
 		m.renderNetAction(netActionHTTP, "HTTP url (curl)"),
-		m.netHTTPInput.View(),
+		m.renderInput(m.netHTTPInput, m.netAction == netActionHTTP && m.netInputOn),
 	}
 
 	if m.lastResult != "" {
@@ -587,12 +672,43 @@ func (m tuiModel) renderStatus() string {
 	return strings.Join(rows, "\n")
 }
 
+func (m tuiModel) renderNotificationsBox() string {
+	if len(m.status) == 0 {
+		return ""
+	}
+	const maxLines = 3
+	start := 0
+	if len(m.status) > maxLines {
+		start = len(m.status) - maxLines
+	}
+	lines := m.status[start:]
+	rendered := make([]string, 0, len(lines)+1)
+	rendered = append(rendered, sectionStyle.Render("Notifications"))
+	for _, line := range lines {
+		rendered = append(rendered, m.renderNoticeLine(line))
+	}
+	width := max(12, m.rightWidth-6)
+	return noticeStyle.Width(width).Render(lipgloss.JoinVertical(lipgloss.Left, rendered...))
+}
+
+func (m tuiModel) renderNoticeLine(line string) string {
+	lower := strings.ToLower(line)
+	if strings.Contains(lower, "failed") || strings.Contains(lower, "error") || strings.Contains(lower, "panic") {
+		return lipgloss.NewStyle().Foreground(colorOff).Render(line)
+	}
+	return dimStyle.Render(line)
+}
+
 func (m tuiModel) renderToggle(label string, value bool) string {
 	state := "off"
+	stateStyle := dimStyle
 	if value {
 		state = "on"
+		stateStyle = lipgloss.NewStyle().Foreground(colorOn).Bold(true)
+	} else {
+		stateStyle = lipgloss.NewStyle().Foreground(colorOff)
 	}
-	return fmt.Sprintf("%s: %s", label, accentStyle.Render(state))
+	return fmt.Sprintf("%s: %s", label, stateStyle.Render(state))
 }
 
 func (m tuiModel) renderButton(label string, active bool) string {
@@ -602,12 +718,91 @@ func (m tuiModel) renderButton(label string, active bool) string {
 	return buttonStyle.Render(label)
 }
 
+func (m tuiModel) renderButtonDisabled(label string) string {
+	return buttonDisabledStyle.Render(label)
+}
+
 func (m tuiModel) renderNetAction(action netAction, label string) string {
 	prefix := "  "
 	if m.netAction == action && !m.netInputOn {
 		prefix = "> "
 	}
 	return fmt.Sprintf("%s%s", prefix, label)
+}
+
+func (m tuiModel) inputWidth() int {
+	width := m.rightWidth - 6
+	if width < 10 {
+		width = 10
+	}
+	return width
+}
+
+func (m tuiModel) renderInput(input textinput.Model, focused bool) string {
+	style := inputStyle
+	if focused {
+		style = inputActiveStyle
+	}
+	return style.Width(m.inputWidth()).Render(input.View())
+}
+
+func (m tuiModel) renderLoginInput(index int) string {
+	var focused bool
+	switch index {
+	case 0:
+		focused = m.currentLoginField() == loginFieldUser
+	case 1:
+		focused = m.currentLoginField() == loginFieldPass
+	case 2:
+		focused = m.currentLoginField() == loginFieldIP
+	default:
+		focused = false
+	}
+	return m.renderInput(m.loginInputs[index], focused)
+}
+
+func (m tuiModel) renderUpnpOptions() []string {
+	if len(m.upnpOptions) == 0 {
+		return nil
+	}
+	const maxItems = 4
+	window := maxItems
+	if len(m.upnpOptions) < window {
+		window = len(m.upnpOptions)
+	}
+	start := m.upnpIndex - window/2
+	if start < 0 {
+		start = 0
+	}
+	if start+window > len(m.upnpOptions) {
+		start = len(m.upnpOptions) - window
+	}
+	end := start + window
+
+	rows := make([]string, 0, window+1)
+	for i := start; i < end; i++ {
+		opt := m.upnpOptions[i]
+		prefix := "  "
+		if i == m.upnpIndex {
+			prefix = "> "
+		}
+		rows = append(rows, fmt.Sprintf("%s%s (%s)", prefix, opt.name, opt.ip))
+	}
+	if len(m.upnpOptions) > window {
+		rows = append(rows, dimStyle.Render(fmt.Sprintf("... %d more", len(m.upnpOptions)-window)))
+	}
+	return rows
+}
+
+func truncateLines(content string, maxLines int) string {
+	if maxLines <= 0 {
+		return ""
+	}
+	lines := strings.Split(content, "\n")
+	if len(lines) <= maxLines {
+		return content
+	}
+	return strings.Join(lines[:maxLines], "\n")
 }
 
 func loadUpnpOptions() ([]ifaceOption, string) {
@@ -743,6 +938,11 @@ func (m tuiModel) updateLogin(msg tea.Msg, cmd tea.Cmd) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.syncLoginFocus()
+			return m, cmd
+		case "f":
+			if m.loginUseUPnP {
+				return m, m.fetchUpnpIP()
+			}
 			return m, cmd
 		case "enter":
 			switch m.currentLoginField() {
@@ -1043,6 +1243,26 @@ func timestamped(line string) string {
 
 func defaultConfigPath() string {
 	return "~/.config/seulogin/config.toml"
+}
+
+func tuiLogPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "seulogin-tui.log"
+	}
+	return filepath.Join(home, ".config", "seulogin", "tui.log")
+}
+
+func setupTuiLogger() error {
+	logPath := tuiLogPath()
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return err
+	}
+	logger.SetLogFilePath(logPath)
+	logger.SetSaveToFile(true)
+	logger.SetConsoleOutput(false)
+	logger.Reset()
+	return nil
 }
 
 func expandPath(path string) string {

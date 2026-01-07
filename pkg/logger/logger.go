@@ -13,20 +13,21 @@ type Logger struct {
 	verbose      bool
 	saveToFile   bool
 	logFilePath  string
+	consoleOut   bool
 }
 
 var (
-	logger = NewLogger(false, false, "")
+	logger = NewLogger(false, false, "", true)
 )
 
 func GetLogger() *Logger {
 	if logger == nil {
-		logger = NewLogger(false, false, "")
+		logger = NewLogger(false, false, "", true)
 	}
 	return logger
 }
 
-func NewLogger(verbose bool, saveToFile bool, logFilePath string) *Logger {
+func NewLogger(verbose bool, saveToFile bool, logFilePath string, consoleOut bool) *Logger {
 	encoderConfig := zap.NewProductionEncoderConfig()
 	encoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 	encoderConfig.EncodeLevel = zapcore.CapitalLevelEncoder
@@ -53,26 +54,33 @@ func NewLogger(verbose bool, saveToFile bool, logFilePath string) *Logger {
 		cores = append(cores, fileCore)
 	}
 
-	level := zapcore.InfoLevel
-	if verbose {
-		level = zapcore.DebugLevel
+	if consoleOut {
+		level := zapcore.InfoLevel
+		if verbose {
+			level = zapcore.DebugLevel
+		}
+		stdoutCore := zapcore.NewCore(
+			zapcore.NewJSONEncoder(encoderConfig),
+			zapcore.AddSync(os.Stdout),
+			zap.LevelEnablerFunc(func(l zapcore.Level) bool {
+				return l >= level
+			}),
+		)
+		cores = append(cores, stdoutCore)
 	}
-	stdoutCore := zapcore.NewCore(
-		zapcore.NewJSONEncoder(encoderConfig),
-		zapcore.AddSync(os.Stdout),
-		zap.LevelEnablerFunc(func(l zapcore.Level) bool {
-			return l >= level
-		}),
-	)
-	cores = append(cores, stdoutCore)
 
-	structLogger = zap.New(zapcore.NewTee(cores...))
+	if len(cores) == 0 {
+		structLogger = zap.NewNop()
+	} else {
+		structLogger = zap.New(zapcore.NewTee(cores...))
+	}
 
 	return &Logger{
 		structLogger: structLogger,
 		verbose:      verbose,
 		saveToFile:   saveToFile,
 		logFilePath:  logFilePath,
+		consoleOut:   consoleOut,
 	}
 }
 
@@ -88,9 +96,13 @@ func (l *Logger) SetLogFilePath(logFilePath_ string) {
 	l.logFilePath = logFilePath_
 }
 
+func (l *Logger) SetConsoleOutput(consoleOut bool) {
+	l.consoleOut = consoleOut
+}
+
 func (l *Logger) Reset() {
 	l.Close()
-	newLogger := NewLogger(l.verbose, l.saveToFile, l.logFilePath)
+	newLogger := NewLogger(l.verbose, l.saveToFile, l.logFilePath, l.consoleOut)
 	*l = *newLogger // 使用解引用来更新整个 Logger 结构
 	l.Debug("Reset logger", zap.String("logFilePath", l.logFilePath), zap.Bool("verbose", l.verbose), zap.Bool("saveToFile", l.saveToFile))
 }
