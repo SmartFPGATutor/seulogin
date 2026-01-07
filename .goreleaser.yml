@@ -120,65 +120,65 @@ release:
     owner: SmartFPGATutor
     name: seulogin
 
-dockers:
-- image_templates:
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
-  dockerfile: Dockerfile
-  use: buildx
-  build_flag_templates:
-  - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
-  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
-  - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
-  - "--label=org.opencontainers.image.created={{.Date}}"
-  - "--label=org.opencontainers.image.name={{.ProjectName}}"
-  - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-  - "--label=org.opencontainers.image.version={{.Version}}"
-  - "--label=org.opencontainers.image.source={{.GitURL}}"
-  - "--platform=linux/amd64"
-  extra_files:
-    - config_example.toml
-- image_templates:
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
-  dockerfile:  Dockerfile
-  use: buildx
-  build_flag_templates:
-  - "--pull"
-  - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
-  - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/www/static/images/logo.png"
-  - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
-  - "--label=io.artifacthub.package.license=MIT"
-  - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
-  - "--label=org.opencontainers.image.created={{.Date}}"
-  - "--label=org.opencontainers.image.name={{.ProjectName}}"
-  - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-  - "--label=org.opencontainers.image.version={{.Version}}"
-  - "--label=org.opencontainers.image.source={{.GitURL}}"
-  - "--platform=linux/arm64"
-  goarch: arm64
-  extra_files:
-    - config_example.toml
-
-docker_manifests:
-- name_template: 'nerdneils/{{.ProjectName}}:{{ .Tag }}'
-  image_templates:
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}'
-  image_templates:
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'nerdneils/{{.ProjectName}}:latest'
-  image_templates:
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
-- name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:latest'
-  image_templates:
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
-  - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
+# dockers:
+# - image_templates:
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   dockerfile: Dockerfile
+#   use: buildx
+#   build_flag_templates:
+#   - "--pull"
+#   - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
+#   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
+#   - "--label=io.artifacthub.package.license=MIT"
+#   - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
+#   - "--label=org.opencontainers.image.created={{.Date}}"
+#   - "--label=org.opencontainers.image.name={{.ProjectName}}"
+#   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#   - "--label=org.opencontainers.image.version={{.Version}}"
+#   - "--label=org.opencontainers.image.source={{.GitURL}}"
+#   - "--platform=linux/amd64"
+#   extra_files:
+#     - config_example.toml
+# - image_templates:
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
+#   dockerfile:  Dockerfile
+#   use: buildx
+#   build_flag_templates:
+#   - "--pull"
+#   - "--label=io.artifacthub.package.readme-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/README.md"
+#   - "--label=io.artifacthub.package.logo-url=https://raw.githubusercontent.com/SmartFPGATutor/seulogin/master/www/static/images/logo.png"
+#   - "--label=io.artifacthub.package.maintainers=[{\"name\":\"dengqqi\",\"email\":\"dengqqi935@gmail.com\"}]"
+#   - "--label=io.artifacthub.package.license=MIT"
+#   - "--label=org.opencontainers.image.description=A command line tool to login to Southeast University Network"
+#   - "--label=org.opencontainers.image.created={{.Date}}"
+#   - "--label=org.opencontainers.image.name={{.ProjectName}}"
+#   - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#   - "--label=org.opencontainers.image.version={{.Version}}"
+#   - "--label=org.opencontainers.image.source={{.GitURL}}"
+#   - "--platform=linux/arm64"
+#   goarch: arm64
+#   extra_files:
+#     - config_example.toml
+#
+# docker_manifests:
+# - name_template: 'nerdneils/{{.ProjectName}}:{{ .Tag }}'
+#   image_templates:
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
+# - name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}'
+#   image_templates:
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
+# - name_template: 'nerdneils/{{.ProjectName}}:latest'
+#   image_templates:
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   - 'nerdneils/{{.ProjectName}}:{{ .Tag }}-arm64'
+# - name_template: 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:latest'
+#   image_templates:
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-amd64'
+#   - 'ghcr.io/SmartFPGATutor/{{.ProjectName}}:{{ .Tag }}-arm64'
 
 checksum:
   name_template: "checksums.txt"
